@@ -184,6 +184,8 @@
 #. text in the Options window
 #. a 12-hour clock, with an example
 	12-hour (9:41 PM)	12-hour (9:41 PM)
+#. checkbox in the Options window
+	1x Disk Stream Unpack (.zip/.tar.*/.acpkg to folder; .rar/.7z auto-extract)	1x Disk Stream Unpack (.zip/.tar.*/.acpkg to folder; .rar/.7z auto-extract)
 #. text in the Options window
 #. a 24-hour clock, with an example
 	24-hour (21:41)	24-hour (21:41)
@@ -304,6 +306,9 @@
 #. message or event log entry in the main window; text in the tray icon's menu
 #. title of the note when Tasks → Add batch download from clipboard finds nothing to download
 	Add batch download from clipboard	Add batch download from clipboard
+#. window title in extension.rs
+#. title of the window that offers the browser extension
+	Add BlazingDL to your browser	Add BlazingDL to your browser
 #. text in the Options window
 #. the trailing ... means it is still going on: keep it
 	Add browser...	Add browser...
@@ -315,9 +320,6 @@
 #. text in playlistdlg.rs
 #. title of the question asked before a playlist adds many downloads
 	Add many downloads	Add many downloads
-#. window title in extension.rs
-#. title of the window that offers the browser extension
-	Add BlazingDL to your browser	Add BlazingDL to your browser
 #. message or event log entry in the main window; text in the tray icon's menu
 #. link in the empty download list: opens Add URL
 	Add new download	Add new download
@@ -565,6 +567,8 @@
 #. text in countries.rs
 #. a country's name (where a download's server is)
 	Austria	Austria
+#. checkbox in the Options window
+	Auto-adaptive stream concurrency	Auto-adaptive stream concurrency
 #. checkbox in the Options window; text in the Options window
 #. checkbox: the User-Agent is the default browser's, which BlazingDL finds itself
 	Automatic	Automatic
@@ -614,6 +618,77 @@
 #. text in countries.rs
 #. a country's name (where a download's server is)
 	Bhutan	Bhutan
+#. message or event log entry in the main window; window title in a dialog box; text in the Help menu's windows (About, updates, shortcuts, Tell a friend)
+	BlazingDL	BlazingDL
+#. text in the Options window
+#. Options → Remote → Pair a device: the remote control isn't listening (no network, port taken): the Remote page says why
+	BlazingDL can't be reached on the network now: Options → Remote says why.	BlazingDL can't be reached on the network now: Options → Remote says why.
+#. text in unix.rs
+#. Linux, at start, on the terminal and in a message box: a library the window needs isn't installed; {libraries} = its file names (libxkbcommon-x11.so.0…), left as they are
+	BlazingDL can't open its window: this system lacks {libraries}.	BlazingDL can't open its window: this system lacks {libraries}.
+#. text in remote.rs
+#. remote control page (on a phone): the address typed isn't one BlazingDL downloads (not http, https, ftp or magnet)
+	BlazingDL cannot download this address.	BlazingDL cannot download this address.
+#. text in crashui.rs
+#. crash report window heading: BlazingDL crashed and is gone
+	BlazingDL closed unexpectedly	BlazingDL closed unexpectedly
+#. window title in the Options window
+	BlazingDL Configuration	BlazingDL Configuration
+#. text in remote.rs
+#. remote control page (on a phone): adding a download failed
+	BlazingDL could not add it.	BlazingDL could not add it.
+#. text in remote.rs
+#. remote control page (on a phone): an action failed
+	BlazingDL could not do it.	BlazingDL could not do it.
+#. text in crashui.rs
+	BlazingDL crash report	BlazingDL crash report
+#. text in torrent downloads
+#. question before starting/resuming a torrent that would modify files BlazingDL did not create; Yes authorizes writes, No leaves files unchanged
+	BlazingDL didn't create these files. Starting the torrent can resize them and replace their contents, including unticked files that share pieces. Use them for this torrent?	BlazingDL didn't create these files. Starting the torrent can resize them and replace their contents, including unticked files that share pieces. Use them for this torrent?
+#. text in remote.rs
+#. remote control page (on a phone): BlazingDL can't be reached while pairing
+	BlazingDL does not answer. Check that it is running and on the same network.	BlazingDL does not answer. Check that it is running and on the same network.
+#. text in remote.rs
+#. remote control page (on a phone): BlazingDL can't be reached now; the page keeps trying by itself
+#. the trailing ... means it is still going on: keep it
+	BlazingDL does not answer. Trying again...	BlazingDL does not answer. Trying again...
+#. text in helpers.rs
+#. Video helpers: BlazingDL can't download this helper on this Windows (ffmpeg on 32-bit Windows); "Use another program" is the button below
+	BlazingDL has no copy for this system: install it, or use another program	BlazingDL has no copy for this system: install it, or use another program
+#. text in helpers.rs
+#. Video helpers: BlazingDL can't download Node.js on this system (an unusual processor); Node.js and Deno are program names; "Use another program" is the button below
+	BlazingDL has no copy for this system: install Node.js or Deno, or use another program	BlazingDL has no copy for this system: install Node.js or Deno, or use another program
+#. text in crashui.rs; text in the Help menu's windows (About, updates, shortcuts, Tell a friend)
+#. crash report window heading: an internal error, BlazingDL still running
+	BlazingDL hit an internal error	BlazingDL hit an internal error
+#. text in wake.rs
+#. why the computer isn't going to sleep, in the system's list of programs that keep it awake (Windows' power requests, Linux's inhibitors)
+	BlazingDL is downloading	BlazingDL is downloading
+#. text in wake.rs
+#. why the computer isn't going to sleep, in the system's list of programs that keep it awake; {queue} = the queue's name
+#. {queue} = a queue name such as "Main queue" (keep the braces as they are)
+	BlazingDL is running the queue "{queue}"	BlazingDL is running the queue "{queue}"
+#. text in remote.rs
+#. remote control page (on a phone): no pairing code is shown in BlazingDL; "Pair a device" is BlazingDL's button
+	BlazingDL shows no code now. Click Pair a device there first.	BlazingDL shows no code now. Click Pair a device there first.
+#. text in crashui.rs
+#. crash report window heading: BlazingDL's window doesn't answer (frozen)
+	BlazingDL stopped responding	BlazingDL stopped responding
+#. text in crashui.rs
+	BlazingDL stopped responding for a while	BlazingDL stopped responding for a while
+#. text in the Options window
+#. \\n starts a new line: break lines where they fit the translation
+	BlazingDL writes every connection straight into the final\nfile (a sparse part file next to it), so no temporary directory and no\nassembling step are needed.	BlazingDL writes every connection straight into the final\nfile (a sparse part file next to it), so no temporary directory and no\nassembling step are needed.
+#. text in the Help menu's windows (About, updates, shortcuts, Tell a friend)
+#. {version} = a version number (keep the braces as they are)
+	BlazingDL {version} is available (released {date}).	BlazingDL {version} is available (released {date}).
+#. text in helpers.rs
+#. Video helpers: {version} = the version of BlazingDL's own copy
+#. {version} = a version number (keep the braces as they are)
+	BlazingDL's own copy, version {version}	BlazingDL's own copy, version {version}
+#. text in unix.rs
+#. Linux, at start, on the terminal: the libraries an X11 window needs aren't installed, so the window opens through Wayland instead, where menus can't be placed under what was clicked; {libraries} = their file names, left as they are
+	BlazingDL's X11 window needs {libraries}, which this system lacks: it opens on Wayland instead, where its menus may open away from their titles.	BlazingDL's X11 window needs {libraries}, which this system lacks: it opens on Wayland instead, where its menus may open away from their titles.
 #. text in cnl.rs
 #. button in the Click'n'Load window: refuse this site's links (remembered)
 	Block	Block
@@ -855,7 +930,7 @@
 	Clipboard	Clipboard
 #. text in the Options window
 	Clock:	Clock:
-#. text in archtest.rs; text in the Checksum window; text in the main window (menus, toolbar, Categories pane); button in crashui.rs; button in a dialog box; button in extension.rs; button in the Help menu's windows (About, updates, shortcuts, Tell a friend); button in helpers.rs; button in the download list; button in the Options window; button in rssdlg.rs; button in torrentfiles.rs; text in traypanel.rs; text in standard windows
+#. text in archtest.rs; text in the Checksum window; text in the main window (menus, toolbar, Categories pane); button in crashui.rs; button in a dialog box; button in extension.rs; button in the Help menu's windows (About, updates, shortcuts, Tell a friend); button in helpers.rs; button in the download list; button in the Options window; button in rssdlg.rs; text in saville.rs; button in torrentfiles.rs; text in traypanel.rs; text in standard windows
 #. both verbs: Verify = check the file now; Close = close the window
 #. tooltip of the × that closes the Categories pane
 #. verb: closes this window
@@ -989,11 +1064,11 @@
 #. text in the Options window
 	Customize "Download progress" dialog	Customize "Download progress" dialog
 #. text in the Options window
-	Customize keys to prevent or force downloading with BlazingDL	Customize keys to prevent or force downloading with BlazingDL
-#. text in the Options window
 	Customize BlazingDL Download panels in browsers	Customize BlazingDL Download panels in browsers
 #. text in the Options window
 	Customize BlazingDL menu items in context menu of browsers	Customize BlazingDL menu items in context menu of browsers
+#. text in the Options window
+	Customize keys to prevent or force downloading with BlazingDL	Customize keys to prevent or force downloading with BlazingDL
 #. text in countries.rs
 #. a country's name (where a download's server is)
 	Cyprus	Cyprus
@@ -1327,6 +1402,8 @@
 #. text in gallerydlg.rs
 #. in Download a gallery, after the "Files at most" box
 	Empty: all of them. On most sites the newest come first.	Empty: all of them. On most sites the newest come first.
+#. checkbox in the Options window
+	Enable Post-Download Rule / Webhook (Discord, ntfy, JSON)	Enable Post-Download Rule / Webhook (Discord, ntfy, JSON)
 #. text in crashui.rs
 #. crash report window button: end the frozen BlazingDL and start it again
 	End and restart BlazingDL	End and restart BlazingDL
@@ -1551,6 +1628,8 @@
 #. text in the Download video window
 #. a note in Download video while FLAC is chosen: FLAC keeps the site's (already lossy) sound exactly, it can't make it better, the file is only bigger
 	FLAC keeps the sound exactly, but it can't add quality the site's sound doesn't have: the file is only bigger.	FLAC keeps the sound exactly, but it can't add quality the site's sound doesn't have: the file is only bigger.
+#. checkbox in the Options window
+	Focus Auto-Throttle in fullscreen games	Focus Auto-Throttle in fullscreen games
 #. text in categories.rs
 	Folder:	Folder:
 #. text in finish.rs
@@ -1602,6 +1681,8 @@
 #. text in the Scheduler window
 	Friday	Friday
 #. message or event log entry in the main window
+	from .acpkg	from .acpkg
+#. message or event log entry in the main window
 #. where a download came from, in its log: an image gallery, by gallery-dl
 	from a gallery (gallery-dl)	from a gallery (gallery-dl)
 #. message or event log entry in the main window
@@ -1625,9 +1706,15 @@
 #. option (radio button) in the Options window
 #. Options → Sites Logins → Cookies for video sites: read the cookies of the browser chosen in the list after it
 	From browser:	From browser:
+#. message or event log entry in the main window
+	from Metalink	from Metalink
 #. text in the Batch download window
 #. why Batch download's OK is greyed
 	From must come before To	From must come before To
+#. message or event log entry in the main window
+	from Quick-Add	from Quick-Add
+#. message or event log entry in the main window
+	from Stream Unpack	from Stream Unpack
 #. message or event log entry in the main window
 	from the browser	from the browser
 #. message or event log entry in the main window
@@ -1747,6 +1834,8 @@
 #. text in countries.rs
 #. a country's name (where a download's server is)
 	Heard Island and McDonald Islands	Heard Island and McDonald Islands
+#. checkbox in the Options window
+	Hedged tail racing (preempt stalled tail chunks)	Hedged tail racing (preempt stalled tail chunks)
 #. button in the Options window
 #. noun: button that opens the help
 	Help	Help
@@ -2250,37 +2339,6 @@
 #. text in countries.rs
 #. a country's name (where a download's server is)
 	Mayotte	Mayotte
-#. text in the Options window
-#. Options → Remote → Pair a device: the remote control isn't listening (no network, port taken): the Remote page says why
-	BlazingDL can't be reached on the network now: Options → Remote says why.	BlazingDL can't be reached on the network now: Options → Remote says why.
-#. text in remote.rs
-#. remote control page (on a phone): the address typed isn't one BlazingDL downloads (not http, https, ftp or magnet)
-	BlazingDL cannot download this address.	BlazingDL cannot download this address.
-#. text in remote.rs
-#. remote control page (on a phone): adding a download failed
-	BlazingDL could not add it.	BlazingDL could not add it.
-#. text in remote.rs
-#. remote control page (on a phone): an action failed
-	BlazingDL could not do it.	BlazingDL could not do it.
-#. text in torrent downloads
-#. question before starting/resuming a torrent that would modify files BlazingDL did not create; Yes authorizes writes, No leaves files unchanged
-	BlazingDL didn't create these files. Starting the torrent can resize them and replace their contents, including unticked files that share pieces. Use them for this torrent?	BlazingDL didn't create these files. Starting the torrent can resize them and replace their contents, including unticked files that share pieces. Use them for this torrent?
-#. text in remote.rs
-#. remote control page (on a phone): BlazingDL can't be reached while pairing
-	BlazingDL does not answer. Check that it is running and on the same network.	BlazingDL does not answer. Check that it is running and on the same network.
-#. text in remote.rs
-#. remote control page (on a phone): BlazingDL can't be reached now; the page keeps trying by itself
-#. the trailing ... means it is still going on: keep it
-	BlazingDL does not answer. Trying again...	BlazingDL does not answer. Trying again...
-#. text in helpers.rs
-#. Video helpers: BlazingDL can't download this helper on this Windows (ffmpeg on 32-bit Windows); "Use another program" is the button below
-	BlazingDL has no copy for this system: install it, or use another program	BlazingDL has no copy for this system: install it, or use another program
-#. text in helpers.rs
-#. Video helpers: BlazingDL can't download Node.js on this system (an unusual processor); Node.js and Deno are program names; "Use another program" is the button below
-	BlazingDL has no copy for this system: install Node.js or Deno, or use another program	BlazingDL has no copy for this system: install Node.js or Deno, or use another program
-#. text in remote.rs
-#. remote control page (on a phone): no pairing code is shown in BlazingDL; "Pair a device" is BlazingDL's button
-	BlazingDL shows no code now. Click Pair a device there first.	BlazingDL shows no code now. Click Pair a device there first.
 #. text in whereis.rs
 #. how far a download's server is, by its round trip (60 to 150 ms)
 	medium	medium
@@ -2313,46 +2371,6 @@
 #. text in a download's progress window
 #. legend: pieces not downloaded yet
 	Missing	Missing
-#. message or event log entry in the main window; window title in a dialog box; text in the Help menu's windows (About, updates, shortcuts, Tell a friend)
-	BlazingDL	BlazingDL
-#. text in unix.rs
-#. Linux, at start, on the terminal and in a message box: a library the window needs isn't installed; {libraries} = its file names (libxkbcommon-x11.so.0…), left as they are
-	BlazingDL can't open its window: this system lacks {libraries}.	BlazingDL can't open its window: this system lacks {libraries}.
-#. text in crashui.rs
-#. crash report window heading: BlazingDL crashed and is gone
-	BlazingDL closed unexpectedly	BlazingDL closed unexpectedly
-#. window title in the Options window
-	BlazingDL Configuration	BlazingDL Configuration
-#. text in crashui.rs
-	BlazingDL crash report	BlazingDL crash report
-#. text in crashui.rs; text in the Help menu's windows (About, updates, shortcuts, Tell a friend)
-#. crash report window heading: an internal error, BlazingDL still running
-	BlazingDL hit an internal error	BlazingDL hit an internal error
-#. text in wake.rs
-#. why the computer isn't going to sleep, in the system's list of programs that keep it awake (Windows' power requests, Linux's inhibitors)
-	BlazingDL is downloading	BlazingDL is downloading
-#. text in wake.rs
-#. why the computer isn't going to sleep, in the system's list of programs that keep it awake; {queue} = the queue's name
-#. {queue} = a queue name such as "Main queue" (keep the braces as they are)
-	BlazingDL is running the queue "{queue}"	BlazingDL is running the queue "{queue}"
-#. text in crashui.rs
-#. crash report window heading: BlazingDL's window doesn't answer (frozen)
-	BlazingDL stopped responding	BlazingDL stopped responding
-#. text in crashui.rs
-	BlazingDL stopped responding for a while	BlazingDL stopped responding for a while
-#. text in the Options window
-#. \\n starts a new line: break lines where they fit the translation
-	BlazingDL writes every connection straight into the final\nfile (a sparse part file next to it), so no temporary directory and no\nassembling step are needed.	BlazingDL writes every connection straight into the final\nfile (a sparse part file next to it), so no temporary directory and no\nassembling step are needed.
-#. text in the Help menu's windows (About, updates, shortcuts, Tell a friend)
-#. {version} = a version number (keep the braces as they are)
-	BlazingDL {version} is available (released {date}).	BlazingDL {version} is available (released {date}).
-#. text in helpers.rs
-#. Video helpers: {version} = the version of BlazingDL's own copy
-#. {version} = a version number (keep the braces as they are)
-	BlazingDL's own copy, version {version}	BlazingDL's own copy, version {version}
-#. text in unix.rs
-#. Linux, at start, on the terminal: the libraries an X11 window needs aren't installed, so the window opens through Wayland instead, where menus can't be placed under what was clicked; {libraries} = their file names, left as they are
-	BlazingDL's X11 window needs {libraries}, which this system lacks: it opens on Wayland instead, where its menus may open away from their titles.	BlazingDL's X11 window needs {libraries}, which this system lacks: it opens on Wayland instead, where its menus may open away from their titles.
 #. text in the Scheduler window
 #. Monday, as short as a calendar's column head (two letters in English)
 	Mo	Mo
@@ -2768,6 +2786,9 @@
 #. title of the message when a downloaded file can't be opened
 #. verb: opens the file
 	Open	Open
+#. text in the tray icon's menu; text in traypanel.rs
+#. the notification-area icon's panel (#1365): its button that opens the main window (also the tray menu's first item)
+	Open BlazingDL	Open BlazingDL
 #. button in crashui.rs; button in a dialog box; text in a dialog box; button in torrentfiles.rs
 #. crash report window button: show the report's file in its folder
 #. title of the message when the folder of a downloaded file can't be shown
@@ -2780,9 +2801,6 @@
 	Open in browser	Open in browser
 #. checkbox in the Add torrent window
 	Open magnet links and .torrent files with BlazingDL	Open magnet links and .torrent files with BlazingDL
-#. text in the tray icon's menu; text in traypanel.rs
-#. the notification-area icon's panel (#1365): its button that opens the main window (also the tray menu's first item)
-	Open BlazingDL	Open BlazingDL
 #. text in extension.rs
 #. step 2 of turning on the Safari extension; Cmd is the Command key
 	Open Safari's settings (Cmd+,).	Open Safari's settings (Cmd+,).
@@ -3068,7 +3086,6 @@
 #. RSS feeds window: fetch the selected feed again now
 	Refresh	Refresh
 #. text in the Link grabber window
-#. Link grabber, a link's status: the remedy from the failure's sentence, for a download link that expired. The sentence is the cell's hover tip
 	Refresh the address	Refresh the address
 #. text in the Options window
 #. tab title: how dates and times are written (date order, 12- or 24-hour clock)
@@ -3414,7 +3431,6 @@
 #. View → Draw with: a greyed note under why a graphics system doesn't draw BlazingDL; {date}: the day that was found
 	Since {date}	Since {date}
 #. message or event log entry in the main window
-#. View → Draw with: a greyed note under why a graphics system ("it": Direct3D, Vulkan, Metal or OpenGL) doesn't draw BlazingDL; {date}: the day that was found; BlazingDL tries it again once the graphics driver is updated
 	Since {date}: BlazingDL tries it again after a driver update	Since {date}: BlazingDL tries it again after a driver update
 #. message or event log entry in the main window
 #. View → Draw with: a greyed note under why a graphics system ("it": Direct3D, Vulkan, Metal or OpenGL) doesn't draw BlazingDL; {date}: the day that was found; BlazingDL tries that graphics system again when it next starts
@@ -4485,16 +4501,18 @@
 	Use authorization	Use authorization
 #. text in the Options window
 	Use automatic configuration script	Use automatic configuration script
+#. button in helpers.rs
+#. Video helpers: button: go back to the copy BlazingDL downloads and checks itself
+	Use BlazingDL's own copy	Use BlazingDL's own copy
 #. text in torrent downloads
 	Use existing torrent files	Use existing torrent files
 #. checkbox in the Options window
 	Use FTP in PASV mode	Use FTP in PASV mode
-#. button in helpers.rs
-#. Video helpers: button: go back to the copy BlazingDL downloads and checks itself
-	Use BlazingDL's own copy	Use BlazingDL's own copy
 #. checkbox in the Options window
 #. Options → Sites Logins: checkbox under Cookies for video sites: yt-dlp also reads the person's own yt-dlp config file
 	Use my yt-dlp config file	Use my yt-dlp config file
+#. checkbox in the Options window
+	Use NNTPS (TLS)	Use NNTPS (TLS)
 #. text in the Batch download window
 #. why Batch download's OK is greyed
 	Use one * only	Use one * only
@@ -5015,7 +5033,6 @@
 #. Video helpers: the computer's own JavaScript runtime, used as it is (BlazingDL needn't download one); {runtime} = its name and version ("Node.js 24.11.0", "Deno 2.5.6"), {path} = where it is
 	{runtime}, your system's, nothing to download: {path}	{runtime}, your system's, nothing to download: {path}
 #. text in errors.rs
-#. a debrid service's error: too many requests; BlazingDL waits and retries
 	{service} asks to slow down; BlazingDL will try again in a minute	{service} asks to slow down; BlazingDL will try again in a minute
 #. text in errors.rs
 #. a debrid service's error: it wants the user to allow this computer (it sent an email)
@@ -5052,6 +5069,7 @@
 #. a debrid service's error: the account has no premium (or it ended)
 	{service}: this needs a premium account	{service}: this needs a premium account
 #. text in errors.rs
+#. a debrid service's error: too many downloads at once through the account
 	{service}: too many downloads at once through your account; BlazingDL will try again	{service}: too many downloads at once through your account; BlazingDL will try again
 #. text in errors.rs
 #. a debrid service's error: the account's limit (traffic) for this host is used up
@@ -5169,6 +5187,49 @@ extension	Audio	Audio
 #. text in the browser extension
 #. after the best quality in the menu of the download button over a video, after a star (★ best); lower case; one word
 extension	best	best
+#. text in the browser extension
+#. the extension's name in the browser's list of extensions and on its toolbar button; keep the name BlazingDL as it is
+extension	BlazingDL	BlazingDL
+#. text in the browser extension
+#. on the download button (red) over a video when the app isn't installed or didn't start; 'Get BlazingDL' and 'Retry' buttons follow; BlazingDL is the app's short name, keep it; short
+extension	BlazingDL didn't answer	BlazingDL didn't answer
+#. text in the browser extension
+#. said briefly in the Downloads tab of the toolbar button's popup (the list of BlazingDL's newest downloads) when the app didn't answer in time; keep the name BlazingDL as it is
+extension	BlazingDL didn't answer in time. Try again.	BlazingDL didn't answer in time. Try again.
+#. text in the browser extension
+#. status when the app was started for a download but didn't answer in time; keep the name BlazingDL as it is
+extension	BlazingDL didn't start in time	BlazingDL didn't start in time
+#. text in the browser extension
+#. status when the app refuses this copy of the extension (another copy is installed, or it came from another store); keep the name BlazingDL as it is
+extension	BlazingDL doesn't accept this copy of the extension	BlazingDL doesn't accept this copy of the extension
+#. text in the browser extension
+#. in the menu under the download button over a video: the app is already looking up other videos and can't look this one up now; keep the name BlazingDL as it is
+extension	BlazingDL is busy with other videos	BlazingDL is busy with other videos
+#. text in the browser extension
+#. in the Downloads tab of the toolbar button's popup (the list of BlazingDL's newest downloads) when the app didn't answer in time; keep the name BlazingDL as it is
+#. the trailing ... means it is still going on: keep it
+extension	BlazingDL is busy. Trying again...	BlazingDL is busy. Trying again...
+#. text in the browser extension
+#. shown briefly on the download button when the app could not be reached; keep the name BlazingDL as it is
+extension	BlazingDL isn't installed or didn't start	BlazingDL isn't installed or didn't start
+#. text in the browser extension
+#. status when the browser can't find the app's connection; keep the name BlazingDL as it is
+extension	BlazingDL isn't installed, or its browser integration isn't set up	BlazingDL isn't installed, or its browser integration isn't set up
+#. text in the browser extension
+#. in the Downloads tab of the toolbar button's popup (the list of BlazingDL's newest downloads) when the app isn't running; keep the name BlazingDL as it is
+extension	BlazingDL isn't running	BlazingDL isn't running
+#. text in the browser extension
+#. said briefly in the Downloads tab of the toolbar button's popup (the list of BlazingDL's newest downloads) when the app isn't running; keep the name BlazingDL as it is
+extension	BlazingDL isn't running.	BlazingDL isn't running.
+#. text in the browser extension
+#. in the menu under the download button over a video: the app needs the yt-dlp tool (a program's name, keep it as it is) to find this video's qualities, and it isn't installed; keep the name BlazingDL as it is
+extension	BlazingDL needs yt-dlp for this video	BlazingDL needs yt-dlp for this video
+#. text in the browser extension
+#. tooltip of the switch Send downloads through this browser's proxy or VPN extension; keep the name BlazingDL as it is
+extension	BlazingDL then downloads through the same proxy as this browser. The browser asks you once to allow it; turning this off takes that back.	BlazingDL then downloads through the same proxy as this browser. The browser asks you once to allow it; turning this off takes that back.
+#. text in the browser extension
+#. tooltip of the switch Send downloads through this browser's proxy or VPN extension in Chrome, Edge and the other Chromium browsers (they ask for no permission at the switch); keep the name BlazingDL as it is
+extension	BlazingDL then downloads through the same proxy as this browser. While this is off, the extension doesn't read the browser's proxy.	BlazingDL then downloads through the same proxy as this browser. While this is off, the extension doesn't read the browser's proxy.
 #. text in the browser extension
 #. the name this browser gets in the other BlazingDL's list of paired devices
 extension	Browser extension	Browser extension
@@ -5385,51 +5446,8 @@ extension	Looking up the qualities…	Looking up the qualities…
 #. in the menu under the download button over a video: the app took more than a minute to find the video's qualities, so the menu stopped waiting
 extension	Looking up took too long	Looking up took too long
 #. text in the browser extension
-#. on the download button (red) over a video when the app isn't installed or didn't start; 'Get BlazingDL' and 'Retry' buttons follow; BlazingDL is the app's short name, keep it; short
-extension	BlazingDL didn't answer	BlazingDL didn't answer
-#. text in the browser extension
 #. heading in the toolbar button's popup over the list of the videos, sounds and streams the current web page has loaded
 extension	Media on this page	Media on this page
-#. text in the browser extension
-#. the extension's name in the browser's list of extensions and on its toolbar button; keep the name BlazingDL as it is
-extension	BlazingDL	BlazingDL
-#. text in the browser extension
-#. said briefly in the Downloads tab of the toolbar button's popup (the list of BlazingDL's newest downloads) when the app didn't answer in time; keep the name BlazingDL as it is
-extension	BlazingDL didn't answer in time. Try again.	BlazingDL didn't answer in time. Try again.
-#. text in the browser extension
-#. status when the app was started for a download but didn't answer in time; keep the name BlazingDL as it is
-extension	BlazingDL didn't start in time	BlazingDL didn't start in time
-#. text in the browser extension
-#. status when the app refuses this copy of the extension (another copy is installed, or it came from another store); keep the name BlazingDL as it is
-extension	BlazingDL doesn't accept this copy of the extension	BlazingDL doesn't accept this copy of the extension
-#. text in the browser extension
-#. in the menu under the download button over a video: the app is already looking up other videos and can't look this one up now; keep the name BlazingDL as it is
-extension	BlazingDL is busy with other videos	BlazingDL is busy with other videos
-#. text in the browser extension
-#. in the Downloads tab of the toolbar button's popup (the list of BlazingDL's newest downloads) when the app didn't answer in time; keep the name BlazingDL as it is
-#. the trailing ... means it is still going on: keep it
-extension	BlazingDL is busy. Trying again...	BlazingDL is busy. Trying again...
-#. text in the browser extension
-#. shown briefly on the download button when the app could not be reached; keep the name BlazingDL as it is
-extension	BlazingDL isn't installed or didn't start	BlazingDL isn't installed or didn't start
-#. text in the browser extension
-#. status when the browser can't find the app's connection; keep the name BlazingDL as it is
-extension	BlazingDL isn't installed, or its browser integration isn't set up	BlazingDL isn't installed, or its browser integration isn't set up
-#. text in the browser extension
-#. in the Downloads tab of the toolbar button's popup (the list of BlazingDL's newest downloads) when the app isn't running; keep the name BlazingDL as it is
-extension	BlazingDL isn't running	BlazingDL isn't running
-#. text in the browser extension
-#. said briefly in the Downloads tab of the toolbar button's popup (the list of BlazingDL's newest downloads) when the app isn't running; keep the name BlazingDL as it is
-extension	BlazingDL isn't running.	BlazingDL isn't running.
-#. text in the browser extension
-#. in the menu under the download button over a video: the app needs the yt-dlp tool (a program's name, keep it as it is) to find this video's qualities, and it isn't installed; keep the name BlazingDL as it is
-extension	BlazingDL needs yt-dlp for this video	BlazingDL needs yt-dlp for this video
-#. text in the browser extension
-#. tooltip of the switch Send downloads through this browser's proxy or VPN extension; keep the name BlazingDL as it is
-extension	BlazingDL then downloads through the same proxy as this browser. The browser asks you once to allow it; turning this off takes that back.	BlazingDL then downloads through the same proxy as this browser. The browser asks you once to allow it; turning this off takes that back.
-#. text in the browser extension
-#. tooltip of the switch Send downloads through this browser's proxy or VPN extension in Chrome, Edge and the other Chromium browsers (they ask for no permission at the switch); keep the name BlazingDL as it is
-extension	BlazingDL then downloads through the same proxy as this browser. While this is off, the extension doesn't read the browser's proxy.	BlazingDL then downloads through the same proxy as this browser. While this is off, the extension doesn't read the browser's proxy.
 #. text in the browser extension
 #. tooltip of the ⋯ button of a download in the Downloads tab of the toolbar button's popup (the list of BlazingDL's newest downloads): opens its menu
 extension	More actions	More actions
@@ -5478,6 +5496,9 @@ extension	Off on this site	Off on this site
 #. command in the Downloads tab of the toolbar button's popup (the list of BlazingDL's newest downloads): opens the downloaded file; verb
 extension	Open	Open
 #. text in the browser extension
+#. button in the toolbar button's popup; keep the name BlazingDL as it is
+extension	Open BlazingDL	Open BlazingDL
+#. text in the browser extension
 #. button: open the other BlazingDL's address in a tab (to accept its certificate once)
 extension	Open it	Open it
 #. text in the browser extension
@@ -5486,9 +5507,6 @@ extension	Open its address once and accept its certificate, then enter a code fr
 #. text in the browser extension
 #. button at the foot of the Downloads tab in the toolbar button's popup when downloads go to another BlazingDL (a server): opens that server's own web page
 extension	Open its page	Open its page
-#. text in the browser extension
-#. button in the toolbar button's popup; keep the name BlazingDL as it is
-extension	Open BlazingDL	Open BlazingDL
 #. text in the browser extension
 #. button on the download button over a video in a feed: opens the post the video belongs to in a new tab; verb; very short
 extension	Open post	Open post
@@ -5597,11 +5615,11 @@ extension	Show in folder	Show in folder
 #. screen readers' name of a download's Show in folder button in the Downloads tab of the toolbar button's popup (the list of BlazingDL's newest downloads)
 extension	Show {file} in folder	Show {file} in folder
 #. text in the browser extension
-#. in the Downloads tab of the toolbar button's popup (the list of BlazingDL's newest downloads) when the app isn't running
-extension	Start it to see your downloads here.	Start it to see your downloads here.
-#. text in the browser extension
 #. button in the Downloads tab of the toolbar button's popup (the list of BlazingDL's newest downloads) when the app isn't running; keep the name BlazingDL as it is
 extension	Start BlazingDL	Start BlazingDL
+#. text in the browser extension
+#. in the Downloads tab of the toolbar button's popup (the list of BlazingDL's newest downloads) when the app isn't running
+extension	Start it to see your downloads here.	Start it to see your downloads here.
 #. text in the browser extension
 #. a download's line in the Downloads tab of the toolbar button's popup (the list of BlazingDL's newest downloads) when it has just started and nothing has come yet
 #. the trailing ... means it is still going on: keep it
@@ -5964,6 +5982,11 @@ menu	Aqua	Aqua
 #. menu command in the main window
 menu	Arrange files	Arrange files
 #. menu command in the main window
+#. & marks the keyboard shortcut letter: keep one & before a letter of the translation
+menu	BlazingDL &Home Page	BlazingDL &Home Page
+#. menu command in the main window
+menu	BlazingDL (Saville)	BlazingDL (Saville)
+#. menu command in the main window
 #. View → Theme: a style theme's name (KDE Plasma's look, the Linux desktop), a name: keep "Breeze" as written
 menu	Breeze	Breeze
 #. menu command in the main window
@@ -6129,9 +6152,6 @@ menu	Metal draws with a software renderer	Metal draws with a software renderer
 #. View → Theme: a style theme's name (Windows 8's flat look); keep "Metro" unless your language writes it otherwise
 menu	Metro	Metro
 #. menu command in the main window
-#. & marks the keyboard shortcut letter: keep one & before a letter of the translation
-menu	BlazingDL &Home Page	BlazingDL &Home Page
-#. menu command in the main window
 menu	Move/Rename (Ctrl-M)	Move/Rename (Ctrl-M)
 #. menu command in the main window
 #. View → Theme: the system's own colours (its accent colour, its high contrast)
@@ -6271,7 +6291,7 @@ menu	To &IDM export file...	To &IDM export file...
 #. & marks the keyboard shortcut letter: keep one & before a letter of the translation
 #. the trailing ... means it opens a window: keep it
 menu	To &text file...	To &text file...
-#. menu command in the main window; menu command in the main window (menus, toolbar, Categories pane)
+#. menu command in the main window; menu command in the main window (menus, toolbar, Categories pane); menu command in saville.rs
 #. noun: the toolbar (submenu of View with its settings)
 menu	Toolbar	Toolbar
 #. menu command in the main window
