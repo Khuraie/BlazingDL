@@ -27,12 +27,12 @@
 
 <p align="center">
   <a href="https://github.com/Khuraie/BlazingDL/releases/download/v0.5.2/BlazingDL-Promo-1080p60.mp4">
-    <img src="art/promo/promo-poster.png" width="100%" alt="Watch BlazingDL 1080p60 Launch Promo — 1× Disk Stream Unpack & Multi-NIC Bonding" />
+    <img src="art/promo/BlazingDL-Promo.gif" width="100%" alt="BlazingDL Launch Promo — 1× Disk Stream Unpack, Saville Workstation & Multi-NIC Bonding" />
   </a>
 </p>
 
 <p align="center">
-  <em>Click to watch the <strong>1080p60 Launch Promo</strong> (<a href="https://github.com/Khuraie/BlazingDL/releases/download/v0.5.2/BlazingDL-Promo-1080p60.mp4">BlazingDL-Promo-1080p60.mp4</a> · 0:36 · 48 kHz stereo) — 1× disk stream unpack, Saville workstation reveal, surgical progress telemetry, and Multi-NIC aggregation.</em>
+  <em>Auto-playing preview — click for the full <strong>1080p60 MP4 with audio</strong> (<a href="https://github.com/Khuraie/BlazingDL/releases/download/v0.5.2/BlazingDL-Promo-1080p60.mp4">BlazingDL-Promo-1080p60.mp4</a> · 0:36 · 48 kHz stereo).</em>
 </p>
 
 ## Desktop Showcase
