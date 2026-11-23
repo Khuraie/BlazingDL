@@ -20,6 +20,16 @@ blazingdl-engine.workspace = true
 tracing.workspace = true
 # A RAR volume's end-of-archive header is checked by its CRC (is the set complete, #1661).
 crc32fast.workspace = true
+# Streaming 1x-disk unpack (AntiCompress-compatible .zip, .tar.*, .acpkg).
+ruzstd = "0.7.3"
+reqwest.workspace = true
+tokio.workspace = true
+futures.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+hex.workspace = true
+url.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

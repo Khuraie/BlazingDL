@@ -407,14 +407,15 @@ pub fn header(
 /// Actions emitted by the inline Saville Command & Capture strip.
 pub enum CommandBarEvent {
     SubmitAdd(String),
+    ToggleStreamUnpack,
     ToggleMultiNic,
     ToggleFocus,
 }
 
 /// Inline 36px Saville Command & Capture strip directly below the Pulse Header:
-/// - Left: Quick-Add bar for URL / magnet: / .meta4 / .nzb / URL+sha256 (`Ctrl+L`, Enter submits)
+/// - Left: Quick-Add bar for URL / magnet: / .acpkg / .meta4 / .nzb / URL+sha256 (`Ctrl+L`)
 /// - Middle: Live instant filter (`Ctrl+F`) with crisp `×` clear button
-/// - Right: Multi-NIC Bond toggle pill & Game/Focus Auto-Throttle toggle pill
+/// - Right: Stream Unpack (1× disk), Multi-NIC Bond, and Game/Focus Auto-Throttle toggle pills
 #[allow(clippy::too_many_arguments)]
 pub fn command_bar(
     ui: &mut Ui,
@@ -422,6 +423,7 @@ pub fn command_bar(
     width: f32,
     add_buf: &mut String,
     filter_buf: &mut String,
+    stream_unpack: bool,
     nic_bonded: usize,
     focus_enabled: bool,
     focus_reason: Option<&crate::focusmode::ThrottleReason>,
@@ -451,7 +453,7 @@ pub fn command_bar(
     let c = crate::theme::colors();
     let pill_font = FontId::new(10.5, egui::FontFamily::Name("segoe-bold".into()));
 
-    // ---- Right pills: MULTI-NIC & FOCUS ----
+    // ---- Right pills: UNPACK (1× disk), MULTI-NIC & FOCUS ----
     let focus_label = if let Some(r) = focus_reason {
         r.short_label()
     } else if focus_enabled {
@@ -464,11 +466,18 @@ pub fn command_bar(
     } else {
         "MULTI-NIC".to_owned()
     };
-    let focus_w = (text_width_font(&p, pill_font.clone(), &focus_label).ceil() + 22.0).max(88.0);
-    let nic_w = (text_width_font(&p, pill_font.clone(), &nic_label).ceil() + 22.0).max(88.0);
+    let unpack_label = if stream_unpack {
+        "UNPACK: 1X"
+    } else {
+        "UNPACK"
+    };
+    let focus_w = (text_width_font(&p, pill_font.clone(), &focus_label).ceil() + 22.0).max(86.0);
+    let nic_w = (text_width_font(&p, pill_font.clone(), &nic_label).ceil() + 22.0).max(86.0);
+    let unpack_w = (text_width_font(&p, pill_font.clone(), unpack_label).ceil() + 22.0).max(76.0);
 
     let focus_x = o.x + width - pad - focus_w;
     let nic_x = focus_x - gap - nic_w;
+    let unpack_x = nic_x - gap - unpack_w;
 
     // Draw FOCUS pill
     let focus_rect = winui::rect(Rect::from_min_size(pos2(focus_x, cy), vec2(focus_w, ctrl_h)));
@@ -558,9 +567,47 @@ pub fn command_bar(
         ev = Some(CommandBarEvent::ToggleMultiNic);
     }
 
+    // Draw UNPACK (AntiCompress 1× disk streaming unpack & auto-folder) pill
+    let unpack_rect = winui::rect(Rect::from_min_size(pos2(unpack_x, cy), vec2(unpack_w, ctrl_h)));
+    let unpack_resp = ui
+        .interact(
+            unpack_rect,
+            egui::Id::unique("saville-unpack-pill"),
+            winui::pointer_only(),
+        )
+        .on_hover_text(
+            "AntiCompress 1× Disk Stream Unpack: streams .zip/.tar.*/.acpkg straight to folder and auto-extracts & cleans multi-part .rar/.7z",
+        );
+    let unpack_cap = if stream_unpack { SIGNAL_EMERALD } else { SIGNAL_STEEL };
+    let unpack_bg = if unpack_resp.hovered() { c.button_hot } else { field_bg };
+    p.rect_filled(unpack_rect, 0.0, unpack_bg);
+    p.rect_stroke(
+        unpack_rect,
+        0.0,
+        Stroke::new(1.0, if stream_unpack { SIGNAL_EMERALD } else { rule_color() }),
+        egui::StrokeKind::Inside,
+    );
+    p.rect_filled(
+        winui::rect(Rect::from_min_size(pos2(unpack_x, cy), vec2(3.0, ctrl_h))),
+        0.0,
+        unpack_cap,
+    );
+    let ulw = text_width_font(&p, pill_font.clone(), unpack_label);
+    text_font(
+        &p,
+        pill_font.clone(),
+        unpack_x + 3.0 + ((unpack_w - 3.0 - ulw) * 0.5).max(4.0),
+        cy + 16.0,
+        unpack_label,
+        if stream_unpack { primary_ink() } else { muted_ink() },
+    );
+    if unpack_resp.clicked() {
+        ev = Some(CommandBarEvent::ToggleStreamUnpack);
+    }
+
     // ---- Left + Middle inputs fill remaining width cleanly ----
-    let avail = (nic_x - gap - (o.x + pad)).max(120.0);
-    let filter_w = (avail * 0.30).clamp(150.0, 260.0);
+    let avail = (unpack_x - gap - (o.x + pad)).max(120.0);
+    let filter_w = (avail * 0.28).clamp(140.0, 240.0);
     let add_total_w = (avail - filter_w - gap).max(160.0);
     let go_w = 42.0;
     let add_box_w = (add_total_w - go_w).max(100.0);
@@ -586,7 +633,7 @@ pub fn command_bar(
             .frame(egui::Frame::NONE)
             .font(FontId::new(11.5, egui::FontFamily::Name("segoe".into())))
             .text_color(primary_ink())
-            .hint_text("Paste URL, magnet:, .meta4, .nzb, or URL + sha256  [Ctrl+L]")
+            .hint_text("Paste URL, magnet:, .acpkg, .meta4, .nzb, or URL + sha256  [Ctrl+L]")
             .desired_width(add_inner.width()),
     );
     if focus_add_req {

@@ -1318,6 +1318,8 @@ pub struct App {
     quick_notice: Option<(String, Instant)>,
     /// Live 24h bandwidth schedule & fullscreen game/focus auto-throttle controller.
     focus_ctrl: crate::focusmode::FocusController,
+    /// Completed AntiCompress streaming unpack results from background tasks.
+    unpack_done: Vec<std::sync::mpsc::Receiver<Result<blazingdl_extract::StreamUnpackReport, String>>>,
     /// The node the list was last drawn for (a new one starts at the top).
     list_view: View,
     /// The download Move/Rename's dialog is for (winui::start_pick answers later).
@@ -2182,6 +2184,7 @@ impl App {
             quick_filter: String::new(),
             quick_notice: None,
             focus_ctrl: Default::default(),
+            unpack_done: Vec::new(),
             all_open,
             unfinished_open,
             finished_open,
@@ -3214,8 +3217,45 @@ impl App {
         if trimmed.is_empty() {
             return;
         }
-        // 1. Local .meta4 / .metalink file path
+        // 0. Local AntiCompress `.acpkg` package folder or manifest.json (always 1× disk unpack)
         let as_path = PathBuf::from(trimmed);
+        if blazingdl_extract::stream_unpack::is_acpkg_path(&as_path) {
+            let pkg_dir = if as_path.is_file() {
+                as_path.parent().unwrap_or(&as_path).to_path_buf()
+            } else {
+                as_path.clone()
+            };
+            let folder_name = pkg_dir
+                .file_name()
+                .and_then(|n| n.to_str())
+                .map(blazingdl_extract::stream_unpack::strip_archive_suffix)
+                .unwrap_or_else(|| "unpacked".into());
+            let dest_dir = self
+                .settings
+                .category_dir(Category::General, &self.downloads)
+                .join(&folder_name);
+            let (tx, rx) = std::sync::mpsc::channel();
+            let ui_ctx = ctx.clone();
+            let dest_clone = dest_dir.clone();
+            self.rt.spawn_blocking(move || {
+                let res = blazingdl_extract::stream_unpack::unpack_acpkg_local(
+                    &pkg_dir,
+                    &dest_clone,
+                    false,
+                    &std::sync::atomic::AtomicBool::new(false),
+                )
+                .map_err(|e| e.to_string());
+                let _ = tx.send(res);
+                ui_ctx.request_repaint();
+            });
+            self.unpack_done.push(rx);
+            self.quick_notice = Some((
+                format!("Unpacking .acpkg → {folder_name}/ (SHA-256 verified)..."),
+                Instant::now(),
+            ));
+            return;
+        }
+        // 1. Local .meta4 / .metalink file path
         if blazingdl_engine::metalink::is_metalink_path(&as_path) && as_path.is_file() {
             match std::fs::read_to_string(&as_path)
                 .map_err(|e| e.to_string())
@@ -3335,6 +3375,65 @@ impl App {
                 .settings
                 .category_dir(Category::General, &self.downloads);
             self.gallery_dlg = Some(crate::gallerydlg::GalleryDialog::new(dir, url.as_str()));
+            return;
+        }
+        // 4b. AntiCompress 1× Disk Stream Unpack for remote `.acpkg` (always) or `.zip`/`.tar.*`
+        // when `stream_unpack` mode is enabled — unpacks straight into a clean folder without ever
+        // writing the compressed archive file to disk.
+        let path_low = url.path().to_ascii_lowercase();
+        let is_remote_acpkg = path_low.trim_end_matches('/').ends_with(".acpkg")
+            || path_low.ends_with("/manifest.json");
+        if is_remote_acpkg
+            || (self.settings.stream_unpack
+                && blazingdl_extract::stream_unpack::is_stream_unpack_url(&url))
+        {
+            let folder_name = blazingdl_extract::stream_unpack::folder_name_for_url(&url);
+            let dest_dir = self
+                .settings
+                .category_dir(Category::General, &self.downloads)
+                .join(&folder_name);
+            let (tx, rx) = std::sync::mpsc::channel();
+            let ui_ctx = ctx.clone();
+            let url_clone = url.clone();
+            let dest_clone = dest_dir.clone();
+            let rules = self.settings.automation_rules.clone();
+            let conns = (self.settings.max_connections as usize).clamp(1, 8);
+            self.rt.spawn(async move {
+                let client = blazingdl_engine::tls::configure(reqwest::Client::builder())
+                    .build()
+                    .unwrap_or_default();
+                let res = blazingdl_extract::stream_unpack::unpack_url(
+                    &client,
+                    &url_clone,
+                    &dest_clone,
+                    conns,
+                    std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+                )
+                .await
+                .map_err(|e| e.to_string());
+                if let Ok(ref rep) = res
+                    && !rules.is_empty()
+                {
+                    let info = crate::automation::CompletedInfo {
+                        file_name: folder_name.clone(),
+                        path: rep.dest_dir.clone(),
+                        url: url_clone.to_string(),
+                        size: rep.bytes_written,
+                        category: "Compressed".into(),
+                    };
+                    let _ = crate::automation::execute_rules(&rules, info).await;
+                }
+                let _ = tx.send(res);
+                ui_ctx.request_repaint();
+            });
+            self.unpack_done.push(rx);
+            self.quick_notice = Some((
+                format!(
+                    "Streaming unpack (1× disk) → {}/...",
+                    dest_dir.file_name().unwrap_or_default().to_string_lossy()
+                ),
+                Instant::now(),
+            ));
             return;
         }
         let fname = url
@@ -11228,6 +11327,32 @@ impl App {
             None => {}
         }
         if saville {
+            // Poll completed AntiCompress streaming unpack jobs for footer feedback.
+            let mut finished_msgs = Vec::new();
+            self.unpack_done.retain(|rx| match rx.try_recv() {
+                Ok(Ok(rep)) => {
+                    let folder = rep
+                        .dest_dir
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy();
+                    finished_msgs.push(format!(
+                        "Unpacked {} file(s) → {folder}/ (1× disk, {})",
+                        rep.files + rep.skipped_resumed,
+                        blazingdl_engine::disk::human(rep.bytes_written)
+                    ));
+                    false
+                }
+                Ok(Err(e)) => {
+                    finished_msgs.push(format!("Stream unpack failed: {e}"));
+                    false
+                }
+                Err(std::sync::mpsc::TryRecvError::Empty) => true,
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => false,
+            });
+            if let Some(msg) = finished_msgs.pop() {
+                self.quick_notice = Some((msg, Instant::now()));
+            }
             let focus_add = free
                 && ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::L));
             let focus_flt = free
@@ -11242,6 +11367,7 @@ impl App {
                 w,
                 &mut self.quick_add,
                 &mut self.quick_filter,
+                self.settings.stream_unpack,
                 bonded_n,
                 self.settings.focus_mode.enabled,
                 self.focus_ctrl.active_reason(),
@@ -11252,6 +11378,16 @@ impl App {
                 match ev {
                     crate::saville::CommandBarEvent::SubmitAdd(raw) => {
                         self.handle_quick_add(raw, &ctx);
+                    }
+                    crate::saville::CommandBarEvent::ToggleStreamUnpack => {
+                        self.settings.stream_unpack = !self.settings.stream_unpack;
+                        self.dirty = true;
+                        let msg = if self.settings.stream_unpack {
+                            "1× Disk Stream Unpack ON (.zip/.tar.*/.acpkg stream to folder; .rar/.7z auto-extract & clean)"
+                        } else {
+                            "1× Disk Stream Unpack OFF"
+                        };
+                        self.quick_notice = Some((msg.to_owned(), Instant::now()));
                     }
                     crate::saville::CommandBarEvent::ToggleMultiNic => {
                         self.toggle_multi_nic(&ctx);

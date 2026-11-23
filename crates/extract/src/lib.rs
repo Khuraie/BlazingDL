@@ -19,6 +19,7 @@ mod external;
 pub mod hatchzip;
 pub mod safe;
 mod single;
+pub mod stream_unpack;
 mod tar_fmt;
 pub mod volumes;
 mod zip_fmt;
@@ -30,6 +31,7 @@ pub use check::{Damage, Verdict};
 pub use external::find_7zip;
 pub use hatchzip::find_hatchzip;
 pub use safe::Limits;
+pub use stream_unpack::{StreamUnpackError, StreamUnpackReport};
 pub use volumes::{OnDisk, Volume, VolumeKind, on_disk, set_key, spanned_part, volume_key};
 
 /// What an archive is, by its first bytes (and, for a compressed tar, its name).

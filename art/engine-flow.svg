@@ -79,7 +79,7 @@
     <rect x="920" y="106" width="240" height="36" fill="#0B0C0E" stroke="#23262E"/>
     <text x="932" y="128">Smart SHA-512/256 Auto-Match</text>
     <rect x="920" y="150" width="240" height="36" fill="#0B0C0E" stroke="#23262E"/>
-    <text x="932" y="172">Archive Test, Extract &amp; Repair</text>
+    <text x="932" y="172">1× Disk Unpack (.zip/.acpkg)</text>
     <rect x="920" y="194" width="240" height="36" fill="#0B0C0E" stroke="#23262E"/>
     <text x="932" y="216">Regex Rules → Move &amp; Exec</text>
     <rect x="920" y="238" width="240" height="36" fill="#0B0C0E" stroke="#23262E"/>

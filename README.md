@@ -71,12 +71,12 @@
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <h3>🧲 BitTorrent, Video &amp; Browser Capture</h3>
-      Full <code>librqbit</code> BitTorrent engine (magnets, DHT, uTP, selective files, blocklists), signature-verified <code>yt-dlp</code> / <code>gallery-dl</code> / <code>ffmpeg</code> helpers, and a cross-browser native messaging extension for Chrome, Edge, Brave, Firefox, and Safari.
+      <h3>📦 AntiCompress 1× Disk Stream Unpack</h3>
+      Built natively in pure Rust (wire-compatible with <a href="https://github.com/Khuraie/AntiCompress">Khuraie/AntiCompress</a>): streams remote <code>.zip</code> (HTTP Range Central Directory + parallel Deflate + resume), <code>.tar.*</code> (gz/xz/zst), and <code>.acpkg</code> v1 packages straight into a ready-to-use folder with <strong>1× disk space</strong>. Multi-part <code>.rar</code> / <code>.7z</code> archives auto-extract to a clean folder and remove leftover parts automatically.
     </td>
     <td width="50%" valign="top">
-      <h3>🤖 CLI, Remote Web UI &amp; MCP Server</h3>
-      Drive BlazingDL from anywhere: headless CLI (<code>blazingdl-cli</code>), local HTTPS phone/remote web UI (<code>blazingdl-remote</code>), Click'n'Load (<code>blazingdl-cnl</code>), Debrid hosts (<code>blazingdl-debrid</code>), and a stdio <strong>MCP server</strong> (<code>blazingdl-mcp</code>) for AI coding assistants.
+      <h3>🧲 BitTorrent, Video &amp; Browser Capture</h3>
+      Full <code>librqbit</code> BitTorrent engine (magnets, DHT, uTP, selective files, blocklists), signature-verified <code>yt-dlp</code> / <code>gallery-dl</code> / <code>ffmpeg</code> helpers, cross-browser extension, CLI (<code>blazingdl-cli</code>), Remote Web UI (<code>blazingdl-remote</code>), and stdio <strong>MCP server</strong> (<code>blazingdl-mcp</code>).
     </td>
   </tr>
 </table>
@@ -104,6 +104,8 @@ The inline **Command & Capture Strip** sits flush beneath the Pulse Header and a
 | **`magnet:?xt=urn:btih:…`** or **`.torrent`** | Opens the BitTorrent transfer dialog with selective file picker |
 | **`C:\path\to\distro.meta4`** | Parses Metalink mirrors + strongest hash and races all mirrors in parallel |
 | **`C:\path\to\release.nzb`** | Launches multi-connection NNTP/yEnc Usenet download into your downloads folder |
+| **`https://…/game.acpkg`** or local **`.acpkg`** | Streams/unpacks AntiCompress v1 chunks with per-chunk &amp; per-file SHA-256 verification (1× disk) |
+| **UNPACK pill** | One-click toggle for 1× disk streaming unpack (`.zip`, `.tar.*`, `.acpkg`) + multi-part `.rar`/`.7z` auto-folder |
 | **MULTI-NIC pill** | One-click toggle to bond all active IPv4/IPv6 network adapters |
 | **FOCUS pill** | One-click toggle for fullscreen game/presentation auto-throttling |
 
@@ -190,7 +192,7 @@ Array indices `0..23` correspond to local hours (`null` = unlimited, integer = K
 | `blazingdl-ipc` | Local single-instance IPC channel & automation API schema |
 | `blazingdl-tools` | Signature-verified helper tool installer & self-update verification |
 | `blazingdl-remote` | Local HTTPS remote control server & web UI |
-| `blazingdl-extract` | Built-in ZIP/tar/xz extraction & archive integrity checker |
+| `blazingdl-extract` | AntiCompress 1× disk streaming unpack (`.zip`, `.tar.*`, `.acpkg`), archive extraction &amp; integrity check |
 | `blazingdl-crash` | Crash/freeze monitor & minidump symbolicator (`blazingdl-symbolicate`) |
 | `blazingdl-debrid`, `blazingdl-cnl`, `blazingdl-geo`, `blazingdl-labserver` | Debrid hosts, Click'n'Load, offline IP-to-country, fault-injection lab server |
 
@@ -207,9 +209,10 @@ cargo build -p blazingdl-app -p blazingdl-cli -p blazingdl-nmhost -p blazingdl-m
 # Full build including `browser-connection` (BoringSSL TLS impersonation; requires CMake, libclang, NASM on Windows)
 cargo build --workspace
 
-# Run engine, app, workspace & extension test suites
+# Run engine, extract, app, workspace & extension test suites
 cargo test -p blazingdl-engine --no-default-features --lib
 cargo test -p blazingdl-engine --no-default-features --test blazing_features
+cargo test -p blazingdl-extract
 cargo test -p blazingdl-app --no-default-features --bin blazingdl "palette::tests|list::tests|automation::tests|focusmode::tests|default_apps_tests"
 cargo test -p blazingdl-ipc -p blazingdl-mcp -p blazingdl-nmhost
 cargo test -p blazingdl-tools --no-default-features --lib
@@ -228,4 +231,4 @@ node tools/extension/test.mjs
 
 Licensed under the **GNU General Public License v3.0 or later** ([LICENSE](LICENSE)).
 
-BlazingDL is a fork of [Mister Download Manager](https://github.com/anefzaoui/misterdownloadmanager) by Ahmed Nefzaoui, with Multi-NIC bandwidth aggregation inspired by [Plexo](https://github.com/anmolkapil/plexo). See [ATTRIBUTION.md](ATTRIBUTION.md) for full upstream and third-party asset credits.
+BlazingDL is a fork of [Mister Download Manager](https://github.com/anefzaoui/misterdownloadmanager) by Ahmed Nefzaoui, with Multi-NIC bandwidth aggregation inspired by [Plexo](https://github.com/anmolkapil/plexo) and 1× disk streaming unpack (`.zip`, `.tar.*`, `.acpkg`) inspired by and wire-compatible with [AntiCompress](https://github.com/Khuraie/AntiCompress). See [ATTRIBUTION.md](ATTRIBUTION.md) for full upstream and third-party asset credits.

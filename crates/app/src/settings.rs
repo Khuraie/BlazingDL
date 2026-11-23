@@ -576,6 +576,9 @@ pub struct Settings {
     pub automation_rules: Vec<crate::automation::AutomationRule>,
     /// Native Usenet NNTP/NNTPS server configuration for `.nzb` downloads.
     pub nntp: blazingdl_engine::NntpConfig,
+    /// AntiCompress-style 1× disk streaming unpack & auto-folder mode for `.zip`, `.tar.*`,
+    /// `.acpkg`, and multi-part `.rar`/`.7z` archives.
+    pub stream_unpack: bool,
 }
 
 /// Options → File types defaults (IDM 6.42), shared with the browser host (blazingdl_ipc::capture).
@@ -758,6 +761,7 @@ impl Default for Settings {
             focus_mode: Default::default(),
             automation_rules: Vec::new(),
             nntp: Default::default(),
+            stream_unpack: false,
         }
     }
 }

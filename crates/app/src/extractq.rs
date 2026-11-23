@@ -137,7 +137,7 @@ impl Extracts {
         };
         let wanted = match &item.package {
             Some(p) => p.extract,
-            None => settings.extract_auto,
+            None => settings.extract_auto || settings.stream_unpack,
         };
         // Its test found it damaged (#1661): left as it is (Extract still tries it).
         if wanted && !item.damaged {
@@ -198,8 +198,8 @@ impl Extracts {
             from_vault: false,
             noted: false,
             keep: false,
-            delete: pkg.map_or(settings.extract_delete, |p| p.delete_after),
-            in_place: settings.extract_in_place,
+            delete: pkg.map_or(settings.extract_delete || settings.stream_unpack, |p| p.delete_after),
+            in_place: settings.extract_in_place || settings.stream_unpack,
             by_hand,
             subfolder: settings.extract_into(),
             url: first.url.clone(),
