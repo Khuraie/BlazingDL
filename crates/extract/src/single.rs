@@ -13,13 +13,16 @@ pub fn extract(archive: &Path, format: Format, w: &mut Writer) -> Result<(), Err
         .map(|s| s.to_string_lossy().into_owned())
         .unwrap_or_default();
     let lower = name.to_lowercase();
-    let inner = [".gz", ".xz"]
+    let inner = [".gz", ".xz", ".zst"]
         .iter()
         .find(|e| lower.ends_with(*e) && lower.len() > e.len())
         .map(|e| name[..name.len() - e.len()].to_owned())
         .unwrap_or_else(|| format!("{name}.out"));
     let mut reader: Box<dyn Read> = match format {
         Format::Xz => Box::new(lzma_rust2::XzReader::new(file, true)),
+        Format::Zst => Box::new(
+            ruzstd::StreamingDecoder::new(file).map_err(|e| Error::Damaged(e.to_string()))?,
+        ),
         _ => Box::new(flate2::read::MultiGzDecoder::new(file)),
     };
     w.file(&inner, None, &mut reader, None)

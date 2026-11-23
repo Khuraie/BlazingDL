@@ -992,64 +992,96 @@
     contain: "layout style", opacity: "1", visibility: "visible", "pointer-events": "auto",
   })) root.style.setProperty(k, v, "important");
   const shadow = root.attachShadow({ mode: "closed" });
-  // It sits on the video like the player's own controls: dark frosted glass that reads over any
-  // frame (bright ones too), BlazingDL's one blue for the action, and its own colour for each thing that
-  // stops it (green done, amber the user's step, red BlazingDL's problem, grey can't by design). Start
-  // and end, never left and right: a right-to-left language mirrors it whole.
+  // Saville Catalog Pulse video overlay: absorbent matte-black (#0E0F11 / #090A0C) in dark mode,
+  // warm paper (#F3F2EE / #EAE8E2) in light mode, strict 0px architectural geometry, 1px hairline
+  // rules, and flat signal color accents (#E04826 ember, #DFB516 ochre, #2460B8 cobalt, #28A763
+  // emerald). Start and end, never left and right: a right-to-left language mirrors it whole.
   const CSS = `
 :host { all: initial; }
 * { box-sizing: border-box; }
 .pill, .menu, .tip, .guide {
-  --go: #57cc5a; --go-hi: #47b94a; --go-ink: #08200b; --stamp: #1b7a26; --accent: #1b7a26;
-  --ok: #1b7a26; --warn: #8a5300; --err: #c42b1c; --warn-dot: #F7B500;
-  --bg: #fcfcfb; --bg2: #eef1f5; --bd: #c4ccd8; --tx: #111318; --tx2: #5f6676; --hov: rgba(87, 204, 90, .16);
-  --sh: 0 1px 2px rgba(17, 19, 24, .18), 0 6px 14px rgba(17, 19, 24, .18);
+  --ember: #c43c12; --ember-hi: #a6300c; --accent: #c43c12;
+  --cobalt: #1d4f9c; --ochre: #9c7400;
+  --ok: #167a44; --ok-tx: #167a44; --warn: #8c6800; --err: #b82323; --warn-dot: #dfb516;
+  --canvas: #f3f2ee; --header: #eae8e2; --surface: #ffffff;
+  --btn: #ffffff; --btn-hot: #ebe9e3; --sel: #e5e3dc;
+  --rule: #cfcdc6; --bd: #bdbbb3; --line: #e4e2db;
+  --tx: #111315; --tx2: #525660;
+  --chip-bg: #111315; --chip-tx: #f3f2ee;
+  --best-bg: #fbeae4; --best-bd: #c43c12; --best-tx: #a6300c;
+  --sb-track: #eae8e2; --sb-thumb: #bdbbb3; --sb-hot: #8c8a82;
+  --sh: 0 2px 6px rgba(17, 19, 21, .16), 0 10px 24px rgba(17, 19, 21, .18);
   --font: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, Roboto, "Noto Sans", sans-serif;
 }
-/* Windows (the system) in dark mode, not the page: BlazingDL's navy board; the green stays. */
+/* Dark mode: Saville Catalog Pulse obsidian/charcoal shell matching BlazingDL's desktop UI. */
 @media (prefers-color-scheme: dark) {
   .pill, .menu, .tip, .guide {
-    --accent: #7fe07f; --ok: #7fe07f; --warn: #ffd36b; --err: #ff99a4;
-    --bg: #0c1a33; --bg2: #081226; --bd: #2a3d63; --tx: #f2f5fb; --tx2: #b7c3da; --hov: rgba(87, 204, 90, .18);
-    --sh: 0 2px 4px rgba(0, 0, 0, .45), 0 8px 16px rgba(0, 0, 0, .45);
+    --ember: #e04826; --ember-hi: #f27435; --accent: #f27435;
+    --cobalt: #2460b8; --ochre: #dfb516;
+    --ok: #28a763; --ok-tx: #38c276; --warn: #dfb516; --err: #ff7878; --warn-dot: #dfb516;
+    --canvas: #0e0f11; --header: #090a0c; --surface: #111317;
+    --btn: #14161b; --btn-hot: #1e222b; --sel: #1b1f27;
+    --rule: #23262e; --bd: #2e323c; --line: #1e2128;
+    --tx: #ecebe7; --tx2: #9498a0;
+    --chip-bg: #ecebe7; --chip-tx: #0e0f11;
+    --best-bg: #261510; --best-bd: #e04826; --best-tx: #f27435;
+    --sb-track: #090a0c; --sb-thumb: #353944; --sb-hot: #555a69;
+    --sh: 0 2px 6px rgba(0, 0, 0, .55), 0 12px 28px rgba(0, 0, 0, .6);
   }
 }
 [dir="rtl"] { --font: "Segoe UI", "Segoe UI Variable Text", system-ui, -apple-system, Roboto, "Noto Sans Arabic", "Noto Sans", sans-serif; }
-/* The tab: a light raised frame at the video's edge; the Download part in green, the arrow and
-   the close (hide on this video) beside it, each its own square button. */
+/* The floating bar: a machined 0px command strip anchored by a 3px Signal Ember end-cap. */
 .pill {
-  display: inline-flex; align-items: stretch; gap: 3px; height: 30px; padding: 2px;
-  background: linear-gradient(var(--bg), var(--bg2)); border: 1px solid var(--bd); border-radius: 5px;
-  box-shadow: var(--sh); color: var(--tx);
+  position: relative; display: inline-flex; align-items: stretch; gap: 0; height: 30px; padding: 0;
+  background: var(--header); border: 1px solid var(--bd); border-inline-start: 3px solid var(--ember);
+  border-radius: 0; box-shadow: var(--sh); color: var(--tx);
   font: 400 12px/1 var(--font); white-space: nowrap;
   opacity: 0; transform: translateY(-2px);
-  transition: opacity .14s ease-out, transform .14s ease-out;
+  transition: opacity .14s ease-out, transform .14s ease-out, border-color .12s ease;
   user-select: none; -webkit-user-select: none; touch-action: none;
 }
 .pill.shown { opacity: 1; transform: none; }
+.pill:not(.bare):hover { border-inline-start-color: var(--ember-hi); }
+.pill[data-state="sent"] { border-inline-start-color: var(--ok); }
+.pill[data-state="warn"] { border-inline-start-color: var(--ochre); }
+.pill[data-state="err"] { border-inline-start-color: var(--err); }
+.pill[data-state="off"], .pill[data-state="drm"] { border-inline-start-color: var(--tx2); }
+/* 2px ember progress hairline along the bottom edge while sending. */
+.pill[data-state="sending"]::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2px;
+  background-size: 200% 100%;
+  background-image: linear-gradient(90deg, var(--ember), var(--ember-hi), var(--ember));
+  animation: shimmer 1.1s linear infinite;
+}
 button {
   /* all: unset resets box-sizing too, past the rule above: without it a menu item's 100 % width
      plus its padding ran past the menu's edge (#81). */
   all: unset; box-sizing: border-box; display: inline-flex; align-items: center;
   color: inherit; cursor: pointer; font: inherit;
 }
-.go { gap: 6px; padding-inline: 5px 9px; border-radius: 3px; cursor: grab; }
-.pill:not(.bare) .go { background: var(--go); color: var(--go-ink); box-shadow: inset 0 -1px 0 rgba(0, 0, 0, .14); }
-.pill:not(.bare) .go:hover { background: var(--go-hi); }
-.pill:not(.bare) .go .label { font-weight: 700; }
-.more, .x { width: 22px; justify-content: center; flex: none; color: var(--tx2);
-  border: 1px solid var(--bd); border-radius: 3px; background: var(--bg); }
-.more:hover, .x:hover, .more[aria-expanded="true"] { background: var(--hov); color: var(--tx); }
+.go {
+  gap: 6px; padding-inline: 6px 10px; border-radius: 0; cursor: grab;
+  background: var(--btn); color: var(--tx); transition: background .1s ease;
+}
+.pill:not(.bare) .go:hover { background: var(--btn-hot); }
+.pill:not(.bare) .go .label { font-weight: 700; letter-spacing: .01em; }
+.more, .x {
+  width: 26px; justify-content: center; flex: none; color: var(--tx2);
+  border: 0; border-inline-start: 1px solid var(--rule); border-radius: 0;
+  background: var(--header); transition: background .1s ease, color .1s ease;
+}
+.more:hover, .x:hover, .more[aria-expanded="true"] { background: var(--btn-hot); color: var(--tx); }
+.more[aria-expanded="true"] { color: var(--ember-hi); }
 .more svg, .x svg { width: 10px; height: 10px; }
 .more[aria-expanded="true"] svg { transform: rotate(180deg); }
-/* The keyboard's ring: a dark one, outside the frame. */
+/* The keyboard's ring: sharp 0px outline outside the bar. */
 .pill:has(button:focus-visible) { outline: 2px solid var(--tx); outline-offset: 2px; }
 button:focus-visible { outline: none; }
 .more:focus-visible, .x:focus-visible, .act:focus-visible { box-shadow: 0 0 0 1px var(--tx) inset; }
 /* Its grip: there all along (the tab keeps its width: the arrow and ✕ never move from under the
    pointer), seen while the pointer is on it. */
 .grip { display: grid; visibility: hidden; grid-template-columns: repeat(2, 2px); gap: 2px; align-content: center; padding-inline-start: 1px; }
-.grip i { display: block; width: 2px; height: 2px; border-radius: 1px; background: currentColor; opacity: .55; }
+.grip i { display: block; width: 2px; height: 2px; border-radius: 0; background: var(--tx2); opacity: .75; }
 .pill:not(.bare):hover .grip, .pill.dragging .grip { visibility: visible; }
 .pill.bare .grip { display: none; }
 .icon { display: flex; align-items: center; justify-content: center; width: 18px; height: 18px; flex: none; }
@@ -1060,98 +1092,141 @@ button:focus-visible { outline: none; }
 .pill[data-state="sending"] .icon .spin, .pill[data-state="sent"] .icon .i-sent,
 .pill[data-state="warn"] .icon .i-warn, .pill[data-state="err"] .icon .i-err,
 .pill[data-state="off"] .icon .i-off, .pill[data-state="drm"] .icon .i-drm { display: block; }
-.spin { width: 14px !important; height: 14px !important; border-radius: 50%; border: 2px solid rgba(8, 32, 11, .25); border-top-color: var(--go-ink);
+.spin { width: 14px !important; height: 14px !important; border-radius: 50%; border: 2px solid var(--rule); border-top-color: var(--ember-hi);
   animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
-.chip { font: 700 10.5px/15px var(--font); color: var(--go-ink); background: rgba(255, 255, 255, .55); border-radius: 3px; padding: 0 4px; }
-.chip.skel { width: 30px; height: 15px; padding: 0; background-size: 200% 100%;
-  background-image: linear-gradient(90deg, rgba(255, 255, 255, .3), rgba(255, 255, 255, .8), rgba(255, 255, 255, .3));
-  animation: shimmer 1.4s linear infinite; }
+.chip {
+  font: 700 10.5px/16px var(--font); font-variant-numeric: tabular-nums;
+  color: var(--chip-tx); background: var(--chip-bg);
+  border-radius: 0; padding: 0 5px; letter-spacing: .02em;
+}
+.chip.skel {
+  width: 32px; height: 16px; padding: 0; background-color: var(--rule); background-size: 200% 100%;
+  background-image: linear-gradient(90deg, var(--rule), var(--bd), var(--rule));
+  animation: shimmer 1.4s linear infinite;
+}
 .chip:empty:not(.skel), .sub:empty, .label:empty, .acts:empty { display: none; }
 .label { font-weight: 600; }
 .sub { color: var(--tx2); }
-/* A state says what happened in its own colour, on the frame (the green is for Download and
-   arrived only). */
-.pill[data-state="sent"] .label { color: var(--ok); }
+/* State labels carry Saville's signal palette. */
+.pill[data-state="sent"] .label { color: var(--ok-tx); }
 .pill[data-state="warn"] .label { color: var(--warn); }
 .pill[data-state="err"] .label { color: var(--err); }
 .pill[data-state="off"] .label, .pill[data-state="drm"] .label { color: var(--tx2); }
-.pill[data-state="sending"] .go { background: var(--go); color: var(--go-ink); }
+.pill[data-state="sending"] .go { background: var(--btn-hot); color: var(--tx); }
 .pill[data-state="sending"] .label { font-weight: 700; }
-.acts { display: inline-flex; align-items: center; gap: 2px; padding-inline-end: 4px; }
-.act { font: 600 11.5px/1 var(--font); color: var(--accent); padding: 4px 6px; border-radius: 4px; }
-.act:hover { background: var(--hov); }
-.act.fill { background: var(--go); color: var(--go-ink); }
-.act.fill:hover { background: var(--go-hi); }
-.pill.bare .go { cursor: default; padding-inline-end: 4px; }
+.acts { display: inline-flex; align-items: stretch; gap: 0; background: var(--header); }
+.act {
+  font: 600 11.5px/1 var(--font); color: var(--accent); padding: 0 9px;
+  border-inline-start: 1px solid var(--rule); border-radius: 0;
+  transition: background .1s ease, color .1s ease;
+}
+.act:hover { background: var(--btn-hot); color: var(--tx); }
+.act.fill { background: var(--ember); color: #ecebe7; }
+.act.fill:hover { background: var(--ember-hi); color: #ffffff; }
+.pill.bare .go { cursor: default; background: var(--header); padding-inline: 8px; }
 .pill.bare .more { display: none; }
-/* Small video, or words that wouldn't fit: the logo in green, the arrow, the close; a state keeps
-   its message and its main action. */
+/* Small video, or words that wouldn't fit: the logo, the arrow, the close; a state keeps its
+   message and its main action. */
 .pill.compact .chip, .pill.compact .sub, .pill.compact .act:not(.fill) { display: none; }
 .pill.compact:not(.bare) .label { display: none; }
-.pill.compact:not(.bare) .go { padding-inline: 4px; }
+.pill.compact:not(.bare) .go { padding-inline: 5px; }
 .pill.dragging { cursor: grabbing; transition: none; transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, .25), 0 16px 32px rgba(0, 0, 0, .3); }
+  box-shadow: 0 4px 10px rgba(0, 0, 0, .4), 0 16px 32px rgba(0, 0, 0, .45); }
 .pill.dragging .go { cursor: grabbing; }
-/* The hover tip: exactly what one click gets, and how to move it. */
-.tip { position: absolute; top: 36px; left: 0; max-width: 320px; width: max-content; padding: 6px 9px; border-radius: 6px;
-  pointer-events: none; background: var(--bg); color: var(--tx); border: 1px solid var(--bd); box-shadow: var(--sh);
-  font: 400 11.5px/1.45 var(--font); white-space: normal; display: none; }
+/* The hover tip: sharp 0px ledger callout. */
+.tip {
+  position: absolute; top: 34px; left: 0; max-width: 320px; width: max-content; padding: 7px 10px;
+  border-radius: 0; pointer-events: none; background: var(--header); color: var(--tx);
+  border: 1px solid var(--bd); border-inline-start: 2px solid var(--ember); box-shadow: var(--sh);
+  font: 400 11.5px/1.45 var(--font); white-space: normal; display: none;
+}
 .tip.on { display: block; }
-.tip .what { display: block; font-weight: 600; }
-.tip .how { display: block; color: var(--tx2); }
-/* While dragging: the edge it slides along and the spots it snaps to. */
+.tip .what { display: block; font-weight: 700; }
+.tip .how { display: block; color: var(--tx2); margin-top: 1px; }
+/* While dragging: the edge it slides along and the square snap points. */
 .guide { position: absolute; left: 0; top: 0; display: none; pointer-events: none; }
 .guide.on { display: block; }
 .line { position: absolute; }
-.line.h { height: 0; border-top: 1.5px dashed rgba(255, 255, 255, .75); }
-.line.v { width: 0; border-inline-start: 1.5px dashed rgba(255, 255, 255, .75); }
-.snap { position: absolute; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%;
-  border: 2px solid #fff; background: var(--go); }
-/* The list: paper white (BlazingDL's navy board in dark mode), one line per quality. */
+.line.h { height: 0; border-top: 1.5px dashed rgba(236, 235, 231, .7); }
+.line.v { width: 0; border-inline-start: 1.5px dashed rgba(236, 235, 231, .7); }
+.snap { position: absolute; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 0;
+  border: 1.5px solid #ecebe7; background: var(--ember); }
+/* The dropdown menu: Saville transfer catalog panel, 0px geometry, 1px rules. */
 .menu {
-  position: absolute; width: 318px; max-width: calc(100vw - 16px); padding: 4px; border-radius: 6px;
-  background: var(--bg); color: var(--tx); border: 1px solid var(--bd); box-shadow: var(--sh);
+  position: absolute; width: 356px; max-width: calc(100vw - 16px); padding: 0; border-radius: 0;
+  background: var(--canvas); color: var(--tx); border: 1px solid var(--bd); box-shadow: var(--sh);
   font: 400 12px/1.2 var(--font); display: none; white-space: nowrap;
 }
 .menu.open { display: block; }
 .menu:focus { outline: none; }
-.mh { display: flex; gap: 8px; align-items: center; padding: 6px 8px 7px; }
+.mh { display: flex; gap: 9px; align-items: center; padding: 9px 12px; background: var(--header); border-bottom: 1px solid var(--rule); }
 .mh img { width: 18px; height: 18px; flex: none; }
-.mh .t { display: block; font-weight: 600; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
-.mh .s { display: block; color: var(--tx2); font-size: 11px; margin-top: 2px; }
-.hr { height: 1px; background: var(--bd); margin: 4px 2px; }
-.cap { font: 600 10.5px/1 var(--font); color: var(--tx2); padding: 6px 8px 2px; letter-spacing: .2px; text-transform: uppercase; }
+.mh > div { min-width: 0; flex: 1; }
+.mh .t { display: block; font-weight: 700; font-size: 12.5px; color: var(--tx); overflow: hidden; text-overflow: ellipsis; }
+.mh .s { display: block; color: var(--tx2); font-size: 11px; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.hr { height: 1px; background: var(--rule); margin: 0; }
+.mh + .hr { display: none; }
+.cap {
+  display: flex; align-items: center; gap: 7px; height: 24px; padding: 0 12px;
+  background: var(--surface); border-bottom: 1px solid var(--line);
+  font: 700 10px/1 var(--font); color: var(--tx2); letter-spacing: .08em; text-transform: uppercase;
+}
+.cap::before { content: ""; width: 7px; height: 7px; flex: none; background: var(--tx2); }
+.cap[data-kind="video"]::before { background: var(--ochre); }
+.cap[data-kind="audio"]::before { background: var(--cobalt); }
 .cap[hidden] { display: none; }
-.note { padding: 6px 8px; color: var(--tx2); white-space: normal; }
+.note { padding: 8px 12px; color: var(--tx2); background: var(--surface); border-bottom: 1px solid var(--rule); white-space: normal; }
 .note[hidden] { display: none; }
 .note .why { display: block; margin-top: 3px; font-size: 11px; overflow-wrap: anywhere; }
 .note.warn { color: var(--warn); }
-.note a { display: inline-block; margin-top: 3px; color: var(--accent); text-decoration: underline; }
-.rows { max-height: min(300px, 45vh); overflow: auto; overscroll-behavior: contain; }
-.menu button { position: relative; display: flex; width: 100%; height: 28px; gap: 8px; padding-inline: 8px; border-radius: 4px; cursor: default; }
-.menu button:hover { background: var(--hov); }
-.menu button.sel { background: var(--hov); }
-.menu button.sel::before { content: ""; position: absolute; inset-inline-start: 0; top: 6px; bottom: 6px; width: 3px; border-radius: 2px; background: var(--go); }
-.menu .n { width: 14px; color: var(--tx2); font-size: 11px; text-align: end; flex: none; }
-.menu .q { width: 46px; font-weight: 600; flex: none; }
-.menu .f { color: var(--tx2); flex: 1; overflow: hidden; text-overflow: ellipsis; }
-.menu .z { color: var(--tx2); font-variant-numeric: tabular-nums; }
-.menu .k { margin-inline-start: auto; padding-inline-start: 12px; color: var(--tx2); font-size: 11px; }
-.menu .top .lead { color: var(--accent); font-weight: 600; }
-.menu .top .f { color: var(--tx); }
-.menu .best { font: 700 10px/13px var(--font); color: var(--accent); border: 1.5px solid var(--accent); border-radius: 3px; padding: 0 3px; margin-inline-start: 4px; }
+.note a { display: inline-block; margin-top: 3px; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+.rows {
+  max-height: min(308px, 46vh); overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain;
+  scrollbar-width: thin; scrollbar-color: var(--sb-thumb) var(--sb-track);
+}
+.rows::-webkit-scrollbar { width: 5px; }
+.rows::-webkit-scrollbar-track { background: var(--sb-track); }
+.rows::-webkit-scrollbar-thumb { background: var(--sb-thumb); border-radius: 0; }
+.rows::-webkit-scrollbar-thumb:hover { background: var(--sb-hot); }
+.menu button {
+  position: relative; display: flex; width: 100%; height: 30px; gap: 8px; padding-inline: 12px;
+  border-radius: 0; cursor: pointer; background: var(--header); transition: background .08s ease;
+}
+.rows button { background: var(--canvas); border-bottom: 1px solid var(--line); }
+.rows button:last-child { border-bottom: 0; }
+.menu button:hover, .menu button.sel { background: var(--sel); }
+.menu button.sel::before { content: ""; position: absolute; inset-inline-start: 0; top: 0; bottom: 0; width: 3px; border-radius: 0; background: var(--ember); }
+.menu .n { width: 16px; color: var(--tx2); font-size: 11px; text-align: end; flex: none; font-variant-numeric: tabular-nums; }
+.menu .q { width: 48px; font-weight: 700; color: var(--tx); flex: none; font-variant-numeric: tabular-nums; }
+.menu .f { color: var(--tx2); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.menu .z { color: var(--tx2); flex: none; font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.menu .k {
+  margin-inline-start: auto; padding: 2px 5px; border: 1px solid var(--rule); background: var(--surface);
+  color: var(--tx2); font-size: 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+}
+.menu .top { height: 34px; background: var(--surface); border-bottom: 1px solid var(--rule); }
+.menu .top .lead { color: var(--tx); font-weight: 700; flex: none; }
+.menu .top .f { color: var(--tx2); }
+.menu .top .z { color: var(--tx); font-weight: 600; }
+.menu .best {
+  flex: none; font: 700 9.5px/15px var(--font); text-transform: uppercase; letter-spacing: .05em;
+  color: var(--best-tx); background: var(--best-bg); border: 1px solid var(--best-bd);
+  border-radius: 0; padding: 0 4px;
+}
 .menu .mi { width: 16px; display: flex; justify-content: center; color: var(--tx2); flex: none; }
 .menu .mi svg { width: 13px; height: 13px; }
-.menu .top .mi { color: var(--go); }
+.menu .top .mi { color: var(--ember-hi); }
 .menu .top .mi svg { width: 14px; height: 14px; }
-.menu .skrow { height: 24px; margin: 2px 8px; border-radius: 4px; background-size: 200% 100%;
-  background-image: linear-gradient(90deg, var(--hov), rgba(127, 127, 127, .12), var(--hov));
-  animation: shimmer 1.4s linear infinite; }
+.menu .skrow {
+  height: 24px; margin: 4px 12px; border-radius: 0; background-size: 200% 100%;
+  background-image: linear-gradient(90deg, var(--surface), var(--sel), var(--surface));
+  animation: shimmer 1.4s linear infinite;
+}
 @media (prefers-reduced-motion: reduce) {
   .pill { transition: none; transform: none; }
-  .spin, .chip.skel, .menu .skrow { animation: none; }
+  .pill[data-state="sending"]::after, .spin, .chip.skel, .menu .skrow { animation: none; }
 }
 `;
   // A constructed sheet: a page whose Content-Security-Policy refuses inline styles can't strip
@@ -2255,9 +2330,11 @@ button:focus-visible { outline: none; }
     b.dataset.choice = String(choice);
     const { q, f } = lineWords(c, t);
     const fs = span("f", f);
-    if (best) fs.append(span("best", t("video_best")));
     if (c && c.compatible === true) b.title = String(c.label ?? "").slice(0, 200);
-    b.append(span("n", String(n)), span("q", q), fs, span("z", rowText(c, lang).size));
+    b.append(span("n", String(n)), span("q", q), fs);
+    // Sibling of .f (not inside it) so flex:none keeps the BEST tag from ever truncating.
+    if (best) b.append(span("best", t("video_best")));
+    b.append(span("z", rowText(c, lang).size));
     return b;
   }
 

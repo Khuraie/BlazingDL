@@ -767,7 +767,7 @@
 #. text in countries.rs
 #. a country's name (where a download's server is)
 	Canada	Canada
-#. button in the Batch download window; button in categories.rs; text in the Checksum window; button in a dialog box; button in extracting archives (a download's log, the Archive password window); button in the Find window; button in gallerydlg.rs; text in the Link grabber window; text in the Help menu's windows (About, updates, shortcuts, Tell a friend); button in langpick.rs; button in the Options window; button in a download's progress window; text in remote.rs; button in the Scheduler window; button in the Add torrent window; button in traypanel.rs; button in the Download video window
+#. button in the Batch download window; button in categories.rs; text in the Checksum window; button in a dialog box; button in extracting archives (a download's log, the Archive password window); button in the Find window; button in gallerydlg.rs; text in the Link grabber window; text in the Help menu's windows (About, updates, shortcuts, Tell a friend); button in langpick.rs; button in the Options window; button in a download's progress window; text in a download's progress window; text in remote.rs; button in the Scheduler window; button in the Add torrent window; button in traypanel.rs; button in the Download video window
 #. button: stop downloading the update
 	Cancel	Cancel
 #. text in errors.rs
@@ -989,7 +989,7 @@
 #. text in a download's progress window
 #. the trailing ... means it is still going on: keep it
 	Connecting...	Connecting...
-#. text in the Options window
+#. text in the Options window; text in a download's progress window
 #. tab title: connection settings
 	Connection	Connection
 #. page title in the Options window
@@ -2215,6 +2215,9 @@
 #. text in the Add torrent window
 #. where a magnet's peers came from: computers on your own network; {peers} = "3 peers"
 	Local network: {peers}	Local network: {peers}
+#. text in a download's progress window
+#. tab title in the progress window: live engine event log
+	Log	Log
 #. text in the Batch download window; text in a dialog box; text in a download's Properties window
 #. noun: the user name for the server (an input box follows)
 #. noun: the user name and password section
@@ -3657,6 +3660,8 @@
 #. text in the Options window
 #. Options → Archives: where extracted files go
 	Straight into the archive's folder	Straight into the archive's folder
+#. message or event log entry in the main window
+	Stream unpack unsupported by server/archive — falling back to standard download	Stream unpack unsupported by server/archive — falling back to standard download
 #. text in the Scheduler window
 #. Sunday, as short as a calendar's column head (two letters in English)
 	Su	Su
@@ -4127,7 +4132,7 @@
 #. text in the Options window
 #. Options → Remote → Pair a device: the code ran out (10 minutes, or 5 wrong tries)
 	This code can't be used any more.	This code can't be used any more.
-#. text in whereis.rs
+#. text in a download's progress window; text in whereis.rs
 	this computer	this computer
 #. text in win32.rs
 #. the Scheduler, under "Wake the computer to run this queue": Windows set the timer but can't wake this computer with it

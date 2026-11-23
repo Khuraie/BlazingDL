@@ -94,6 +94,7 @@ enum Tab {
     Status,
     Limiter,
     Completion,
+    Log,
 }
 
 impl Progress {
@@ -355,6 +356,14 @@ pub struct Progress {
     /// A live stream's window, once seen as one: its Pause button is laid out for "Stop and
     /// save" too, and keeps that size when the label changes back.
     live_stream: bool,
+    /// Per-download live throughput sparkline history and session velocity stats for Saville mode.
+    rate_samples: std::collections::VecDeque<f64>,
+    last_rate_sample: std::time::Instant,
+    peak_rate: f64,
+    rate_sum: f64,
+    rate_count: u64,
+    active_since: Option<std::time::Instant>,
+    elapsed_accum: std::time::Duration,
 }
 
 pub enum Action {
@@ -427,6 +436,59 @@ impl Progress {
             rename_guard_stamp: None,
             rename_guard: None,
             live_stream: false,
+            rate_samples: {
+                let mut q = std::collections::VecDeque::with_capacity(48);
+                q.resize(48, 0.0);
+                q
+            },
+            last_rate_sample: std::time::Instant::now(),
+            peak_rate: 0.0,
+            rate_sum: 0.0,
+            rate_count: 0,
+            active_since: None,
+            elapsed_accum: std::time::Duration::ZERO,
+        }
+    }
+
+    fn record_telemetry(&mut self, item: &Item) {
+        let now = std::time::Instant::now();
+        let active = item.status == Status::Downloading && !item.past_last_byte();
+        if active {
+            if self.active_since.is_none() {
+                self.active_since = Some(now);
+            }
+            let r = item.rate().max(0.0);
+            if r > self.peak_rate {
+                self.peak_rate = r;
+            }
+            if now.duration_since(self.last_rate_sample).as_millis() >= 220 {
+                self.last_rate_sample = now;
+                if self.rate_samples.len() >= 48 {
+                    self.rate_samples.pop_front();
+                }
+                self.rate_samples.push_back(r);
+                if r > 0.0 {
+                    self.rate_sum += r;
+                    self.rate_count += 1;
+                }
+            }
+        } else if let Some(since) = self.active_since.take() {
+            self.elapsed_accum += now.saturating_duration_since(since);
+        }
+    }
+
+    fn elapsed_secs(&self) -> u64 {
+        let live = self
+            .active_since
+            .map_or(std::time::Duration::ZERO, |s| s.elapsed());
+        (self.elapsed_accum + live).as_secs()
+    }
+
+    fn avg_rate(&self) -> f64 {
+        if self.rate_count > 0 {
+            self.rate_sum / self.rate_count as f64
+        } else {
+            0.0
         }
     }
 
@@ -544,7 +606,18 @@ impl Progress {
             _ => 0.0,
         };
         let drop = self.status_drop();
-        let body = if self.details {
+        let saville = crate::saville::active();
+        if !saville && self.tab == Tab::Log {
+            self.tab = Tab::Status;
+        }
+        self.record_telemetry(item);
+        let body = if saville {
+            if self.details {
+                [620.0, if item.torrent.is_some() { 526.0 } else { 518.0 }]
+            } else {
+                [620.0, 314.0]
+            }
+        } else if self.details {
             [548.0, 412.0 + drop + torrent_drop(item)]
         } else {
             [548.0, 241.0 + drop]
@@ -590,7 +663,12 @@ impl Progress {
             .with_resizable(cfg!(windows))
             .with_icon(crate::app_icon())
             .with_maximize_button(false);
-        if let Some(p) = crate::dialogs::place(ctx, key, [548.0, 412.0 + drop]) {
+        let place_sz = if saville {
+            [620.0, 518.0]
+        } else {
+            [548.0, 412.0 + drop]
+        };
+        if let Some(p) = crate::dialogs::place(ctx, key, place_sz) {
             builder = builder.with_position(p);
         }
         // Minimize hides it in the notification area when asked (and a tray can bring it back).
@@ -760,9 +838,12 @@ impl Progress {
             ui.ctx()
                 .request_repaint_after(wait + std::time::Duration::from_millis(15));
         }
+        if crate::saville::active() {
+            return self.saville_body(ui, o, item, snap, frac, drawn);
+        }
         let hide = self.tabs(ui, o);
         let hide_tab = match self.tab {
-            Tab::Status => {
+            Tab::Status | Tab::Log => {
                 self.status_page(ui, o, item, snap, frac);
                 false
             }
@@ -1382,65 +1463,7 @@ impl Progress {
         // the sizes and times, which say nothing then (a site's page, #701; an answer far smaller
         // than the browser's file, #1460; a video's failed merge, what stays for Resume).
         let explained = web_page || item.got_other_answer() || item.merge_failed();
-        let status = match item.status {
-            // A live stream being recorded or saved shows no progress of its own: said first.
-            _ if let Some(live) = live_status(item.live_state()) => live.to_owned(),
-            // A torrent reading and checking its files says so, not "Receiving data" (#39).
-            _ if let Some(checking) = item.torrent_checking() => checking,
-            // After the last byte: the file checked, a video's streams joined (#736), as the
-            // list says, not "Connecting...".
-            _ if let Some(finishing) = item.finishing(false) => finishing,
-            // A torrent its debrid service is downloading (#44).
-            Status::Downloading if item.at_service().is_some() => {
-                item.at_service().unwrap_or_default()
-            }
-            Status::Downloading => {
-                // A video (yt-dlp) has no engine connections: data arriving is the sign.
-                let receiving = snap.is_some_and(|s| {
-                    s.connections
-                        .iter()
-                        .any(|c| matches!(c.status, ConnStatus::Receiving))
-                }) || ((item.video.is_some() || item.torrent.is_some())
-                    && item.rate() > 0.0);
-                // Every byte in and none on its way (#736): the last of it written out, the
-                // file named; nothing is connecting.
-                let completing = item.torrent.is_none()
-                    && snap.is_some_and(|s| {
-                        s.state == blazingdl_engine::download::State::Completing
-                            || (s.size.is_some_and(|t| t > 0 && s.downloaded >= t)
-                                && !s
-                                    .connections
-                                    .iter()
-                                    .any(|c| matches!(c.status, ConnStatus::Connecting)))
-                    });
-                if completing {
-                    // i18n: a download's status: every byte is in, the file is being written out and given its name
-                    crate::i18n::t("Finishing...")
-                } else if receiving {
-                    crate::i18n::t("Receiving data...")
-                } else {
-                    crate::i18n::t("Connecting...")
-                }
-                .to_owned()
-            }
-            // i18n: a download's status (state it is in, not a command): finished
-            Status::Complete => crate::i18n::t("Complete").to_owned(),
-            // i18n: a download's status (state it is in, not a command): stopped for now
-            Status::Stopped => crate::i18n::t("Paused").to_owned(),
-            // i18n: a download's status (state it is in, not a command): waiting in a queue
-            Status::Queued => crate::i18n::t("Waiting").to_owned(),
-            // The site's page instead of the file (#701): why, and what to do, under it.
-            Status::Error if explained => crate::i18n::t("Error").to_owned(),
-            Status::Error => crate::i18n::fmt(
-                // i18n: a download's status: it failed, with the reason
-                crate::i18n::t("Error: {error}"),
-                &[(
-                    "error",
-                    // i18n: the reason a download failed is not known
-                    item.error.as_deref().unwrap_or(crate::i18n::t("unknown")),
-                )],
-            ),
-        };
+        let status = status_text(item, snap, explained);
         fit(
             ui,
             "url",
@@ -1587,7 +1610,32 @@ impl Progress {
     }
 
     fn rename_row(&mut self, ui: &mut Ui, p: &egui::Painter, o: Pos2, column: f32, item: &Item) {
-        let top = 171.0;
+        self.rename_row_at(
+            ui,
+            p,
+            o,
+            171.0,
+            33.0,
+            PAGE_TEXT_RIGHT,
+            column,
+            winui::TEXT(),
+            item,
+        );
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn rename_row_at(
+        &mut self,
+        ui: &mut Ui,
+        p: &egui::Painter,
+        o: Pos2,
+        top: f32,
+        left: f32,
+        right: f32,
+        column: f32,
+        label_color: Color32,
+        item: &Item,
+    ) {
         let base = top + 13.0;
         // i18n: noun: label before the deferred new file or folder name in the progress window
         let rename_label = crate::i18n::t("Rename");
@@ -1596,21 +1644,25 @@ impl Progress {
         // i18n: status shown in green beside the Rename box once the new name is saved
         let saved_text = crate::i18n::t("Saved");
 
-        text(p, o.x + 33.0, o.y + base, rename_label, winui::TEXT());
+        text(p, o.x + left, o.y + base, rename_label, label_color);
 
         let saved_w = winui::text_width(p, saved_text).ceil().max(38.0);
         let btn_w = (winui::text_width(p, crate::i18n::t(confirm_key)) + 20.0)
             .ceil()
             .max(52.0);
-        let saved_x = PAGE_TEXT_RIGHT - saved_w;
-        let btn_x = saved_x - 8.0 - btn_w;
-        let edit_x = column.max(33.0 + winui::text_width(p, rename_label).ceil() + 6.0);
-        let edit_w = (btn_x - 6.0 - edit_x).max(100.0);
-
         let disabled_reason = (item.status != Status::Complete)
             .then_some(self.rename_disabled_reason)
             .flatten();
         let enabled = item.status != Status::Complete && disabled_reason.is_none();
+        let show_saved = enabled && self.rename_show_saved;
+        let saved_x = right - saved_w;
+        let btn_x = if show_saved {
+            saved_x - 8.0 - btn_w
+        } else {
+            right - btn_w
+        };
+        let edit_x = column.max(left + winui::text_width(p, rename_label).ceil() + 8.0);
+        let edit_w = (btn_x - 6.0 - edit_x).max(100.0);
         let edit_rc = r(o, edit_x, top, edit_w, 21.0);
         let edit_resp = winui::edit(ui, edit_rc, &mut self.rename_text, enabled, false);
         if edit_resp.changed() {
@@ -1687,6 +1739,1444 @@ impl Progress {
             text(p, o.x + saved_x, o.y + base, saved_text, winui::SUCCESS());
         }
     }
+
+    // ---- Saville Catalog Pulse progress window -------------------------------------------------
+
+    fn saville_body(
+        &mut self,
+        ui: &mut Ui,
+        o: Pos2,
+        item: &Item,
+        snap: Option<&Snapshot>,
+        frac: Option<f64>,
+        drawn: (f64, &[(u64, f64)]),
+    ) -> Action {
+        use crate::saville::{
+            SIGNAL_COBALT, SIGNAL_EMBER, SIGNAL_EMBER_BRIGHT, SIGNAL_EMERALD, SIGNAL_OCHRE,
+            SIGNAL_STEEL,
+        };
+        let p = ui.painter().clone();
+        let c = crate::theme::colors();
+        let w = 620.0;
+
+        let web_page = item.got_web_page();
+        let explained = web_page || item.got_other_answer() || item.merge_failed();
+        let status = status_text(item, snap, explained);
+        let signal = match item.status {
+            Status::Complete => SIGNAL_EMERALD,
+            Status::Stopped | Status::Queued => SIGNAL_OCHRE,
+            Status::Error => c.error,
+            Status::Downloading => SIGNAL_EMBER,
+        };
+
+        // ---- 1. Hero Pulse Header (y = 0..76) ----
+        let hero_h = 76.0;
+        let hero_rc = winui::rect(egui::Rect::from_min_size(o, vec2(w, hero_h)));
+        p.rect_filled(hero_rc, 0.0, c.header);
+        // 3px leading state edge bar.
+        fill(&p, o.x, o.y, o.x + 2.0, o.y + hero_h - 4.0, signal);
+
+        // Status square + status headline + protocol/category badges.
+        let sq = winui::rect(egui::Rect::from_min_size(
+            egui::pos2(o.x + 16.0, o.y + 13.0),
+            vec2(8.0, 8.0),
+        ));
+        p.rect_filled(sq, 0.0, signal);
+        let status_color = match item.status {
+            Status::Complete => SIGNAL_EMERALD,
+            Status::Stopped | Status::Queued => SIGNAL_OCHRE,
+            Status::Error => c.error,
+            Status::Downloading => c.text,
+        };
+        let status_font = egui::FontId::new(13.0, egui::FontFamily::Name("segoe-bold".into()));
+        let (proto_tag, proto_col) = if item.torrent.is_some() {
+            ("TORRENT", SIGNAL_COBALT)
+        } else if item.video.is_some() {
+            ("VIDEO", SIGNAL_OCHRE)
+        } else if item.url.scheme().eq_ignore_ascii_case("ftp")
+            || item.url.scheme().eq_ignore_ascii_case("ftps")
+        {
+            ("FTP", SIGNAL_COBALT)
+        } else if item.url.scheme().eq_ignore_ascii_case("https") {
+            ("HTTPS", SIGNAL_EMBER)
+        } else {
+            ("HTTP", SIGNAL_EMBER)
+        };
+        let tag_font = egui::FontId::new(9.0, egui::FontFamily::Name("segoe-bold".into()));
+        let ptw = winui::text_width_font(&p, tag_font.clone(), proto_tag).ceil() + 10.0;
+        let tag_x = o.x + 282.0 - ptw;
+        let status_clip = p.with_clip_rect(winui::rect(egui::Rect::from_min_max(
+            egui::pos2(o.x + 30.0, o.y + 4.0),
+            egui::pos2(tag_x - 6.0, o.y + 28.0),
+        )));
+        winui::text_font(
+            &status_clip,
+            status_font,
+            o.x + 30.0,
+            o.y + 21.0,
+            &status,
+            status_color,
+        );
+        // Flat 0px protocol badge on right of left hero cell.
+        let tag_rc = winui::rect(egui::Rect::from_min_size(
+            egui::pos2(tag_x, o.y + 10.0),
+            vec2(ptw, 15.0),
+        ));
+        p.rect_filled(tag_rc, 0.0, c.tree);
+        p.rect_stroke(
+            tag_rc,
+            0.0,
+            egui::Stroke::new(1.0, proto_col),
+            egui::StrokeKind::Inside,
+        );
+        winui::text_font(&p, tag_font, tag_x + 5.0, o.y + 20.5, proto_tag, proto_col);
+
+        // Source URL (copyable).
+        let url_str = crate::i18n::ltr(item.file_address().as_str());
+        let (url_rc, url_cut) =
+            winui::text_fit(&p, o.x + 16.0, o.y + 41.0, &url_str, c.muted, o.x + 282.0);
+        winui::copyable(ui, url_rc, "url", &url_str, url_cut);
+
+        // Save destination path (middle-truncated, copyable).
+        let save_lbl = crate::i18n::t("Save To:");
+        let small_font = egui::FontId::new(10.5, egui::FontFamily::Name("segoe".into()));
+        let slw = winui::text_width_font(&p, small_font.clone(), save_lbl).ceil();
+        winui::text_font(&p, small_font, o.x + 16.0, o.y + 59.0, save_lbl, c.muted);
+        let dest_str = display_path(&item.dest);
+        winui::fit_middle(
+            ui,
+            &p,
+            o.x + 16.0 + slw + 6.0,
+            o.y + 59.0,
+            &dest_str,
+            c.text,
+            o.x + 282.0,
+            "saville-save-path",
+        );
+
+        // Center Live Velocity Pulsar Sparkline (x = 290..460).
+        fill(
+            &p,
+            o.x + 290.0,
+            o.y + 8.0,
+            o.x + 290.0,
+            o.y + hero_h - 10.0,
+            c.list_frame,
+        );
+        fill(
+            &p,
+            o.x + 460.0,
+            o.y + 8.0,
+            o.x + 460.0,
+            o.y + hero_h - 10.0,
+            c.list_frame,
+        );
+        self.saville_sparkline(&p, o.x + 298.0, o.y + 10.0, 154.0, 54.0);
+
+        // Right Velocity, Progress & Session Telemetry Readout (x = 466..604).
+        let active_rate = item.status == Status::Downloading && !item.past_last_byte();
+        let rate_str = if active_rate {
+            model::rate(item.rate())
+        } else if item.status == Status::Complete {
+            crate::i18n::t("Complete").to_owned()
+        } else {
+            "—".to_owned()
+        };
+        let rate_font = egui::FontId::new(16.0, egui::FontFamily::Name("segoe-bold".into()));
+        let rate_color = if active_rate {
+            SIGNAL_EMBER_BRIGHT
+        } else if item.status == Status::Complete {
+            SIGNAL_EMERALD
+        } else {
+            c.muted
+        };
+        let rate_w = winui::text_width_font(&p, rate_font.clone(), &rate_str);
+        let rate_x = (o.x + 604.0 - rate_w).max(o.x + 466.0);
+        let hero_right_clip = p.with_clip_rect(winui::rect(egui::Rect::from_min_max(
+            egui::pos2(o.x + 464.0, o.y + 2.0),
+            egui::pos2(o.x + 606.0, o.y + 70.0),
+        )));
+        winui::text_font(
+            &hero_right_clip,
+            rate_font,
+            rate_x,
+            o.y + 25.0,
+            &rate_str,
+            rate_color,
+        );
+
+        let pct_str = match frac {
+            Some(f) if crate::i18n::code() == "en" => format!("{:.2}%", f * 100.0),
+            Some(f) => crate::i18n::percent(f, 2),
+            None => size3(item.downloaded),
+        };
+        let eta = item.time_left();
+        let sub_readout = if !eta.is_empty() && active_rate {
+            format!("{pct_str} · {eta}")
+        } else {
+            pct_str
+        };
+        let sub_font = egui::FontId::new(11.5, egui::FontFamily::Name("segoe-bold".into()));
+        let sub_w = winui::text_width_font(&p, sub_font.clone(), &sub_readout);
+        let sub_x = (o.x + 604.0 - sub_w).max(o.x + 466.0);
+        winui::text_font(
+            &hero_right_clip,
+            sub_font,
+            sub_x,
+            o.y + 44.0,
+            &sub_readout,
+            c.text,
+        );
+
+        let elapsed = format_elapsed(self.elapsed_secs());
+        let avg = self.avg_rate();
+        let sess_line = if avg > 0.0 {
+            format!("AVG {} · {}", model::rate(avg), elapsed)
+        } else {
+            elapsed
+        };
+        let sess_font = egui::FontId::new(10.0, egui::FontFamily::Name("segoe".into()));
+        let sess_w = winui::text_width_font(&p, sess_font.clone(), &sess_line);
+        let sess_x = (o.x + 604.0 - sess_w).max(o.x + 466.0);
+        winui::text_font(
+            &hero_right_clip,
+            sess_font,
+            sess_x,
+            o.y + 60.0,
+            &sess_line,
+            c.muted,
+        );
+
+        // Flush 3px full-bleed razor progress hairline along bottom of hero band.
+        let track_rc = winui::rect(egui::Rect::from_min_size(
+            egui::pos2(o.x, o.y + hero_h - 3.0),
+            vec2(w, 3.0),
+        ));
+        p.rect_filled(track_rc, 0.0, c.progress_track);
+        let (bar_frac, bar_col) = match finishing_fraction(snap) {
+            Some(f) => (f.clamp(0.0, 1.0), c.accent),
+            None => {
+                let col = match item.status {
+                    Status::Complete => SIGNAL_EMERALD,
+                    Status::Stopped | Status::Queued => SIGNAL_OCHRE,
+                    Status::Error => c.error,
+                    Status::Downloading => SIGNAL_EMBER_BRIGHT,
+                };
+                (drawn.0.clamp(0.0, 1.0), col)
+            }
+        };
+        let fill_w = (w * bar_frac as f32).round();
+        if fill_w > 0.0 {
+            let fill_rc = winui::rect(egui::Rect::from_min_size(
+                egui::pos2(o.x, o.y + hero_h - 3.0),
+                vec2(fill_w, 3.0),
+            ));
+            p.rect_filled(fill_rc, 0.0, bar_col);
+        }
+
+        // ---- 2. Flat Architectural Tab Bar (y = 76..104) ----
+        let event_count = snap.map_or(item.log.len(), |s| s.events.len().max(item.log.len()));
+        let hide = self.saville_tabs(ui, o, event_count);
+
+        // ---- 3. Tab Workspace (y = 104..274) ----
+        let hide_tab = match self.tab {
+            Tab::Status => {
+                self.saville_status_page(ui, o, item, snap, frac, explained);
+                false
+            }
+            Tab::Limiter => self.limiter_page(ui, o + vec2(36.0, 74.0), item),
+            Tab::Completion => self.completion_page(ui, o + vec2(36.0, 74.0), item),
+            Tab::Log => {
+                self.saville_log_page(ui, &p, o, item, snap);
+                false
+            }
+        };
+        if hide_tab {
+            self.hide(self.tab);
+            ui.ctx().request_discard("Hide tab");
+            ui.ctx().request_repaint();
+        }
+
+        // ---- 4. Command Action Bar (y = 274..314) ----
+        let bar_y = 274.0;
+        let bar_h = 40.0;
+        let action_bg = winui::rect(egui::Rect::from_min_size(
+            egui::pos2(o.x, o.y + bar_y),
+            vec2(w, bar_h),
+        ));
+        p.rect_filled(action_bg, 0.0, c.header);
+        fill(
+            &p,
+            o.x,
+            o.y + bar_y,
+            o.x + w - 1.0,
+            o.y + bar_y,
+            c.list_frame,
+        );
+        if self.details {
+            fill(
+                &p,
+                o.x,
+                o.y + bar_y + bar_h - 1.0,
+                o.x + w - 1.0,
+                o.y + bar_y + bar_h - 1.0,
+                c.list_frame,
+            );
+        }
+
+        let mut action = if hide { Action::Hide } else { Action::None };
+        let live = item.live_state();
+        self.live_stream |= live.is_some()
+            || matches!(
+                item.video_helper(),
+                Some(blazingdl_tools::streams::Helper::Live)
+            );
+        let btn_font = egui::FontId::new(11.0, egui::FontFamily::Name("segoe-bold".into()));
+        let btn_y = o.y + bar_y + 7.0;
+        let btn_h = 26.0;
+
+        let details_label = if self.details {
+            crate::i18n::mark("<< Hide details")
+        } else {
+            crate::i18n::mark("Show details >>")
+        };
+        let details_w = (winui::text_width_font(
+            &p,
+            btn_font.clone(),
+            crate::i18n::t(winui::widest_label(
+                &p,
+                &["<< Hide details", "Show details >>"],
+            )),
+        )
+        .ceil()
+            + 24.0)
+            .max(118.0);
+        let details_cap = if self.details {
+            SIGNAL_COBALT
+        } else {
+            SIGNAL_STEEL
+        };
+        if saville_action_button(
+            ui,
+            &p,
+            egui::Rect::from_min_size(egui::pos2(o.x + 16.0, btn_y), vec2(details_w, btn_h)),
+            crate::i18n::t(details_label),
+            details_cap,
+            true,
+            ("saville-prog-details", self.id),
+        ) {
+            self.details = !self.details;
+        }
+
+        if web_page {
+            let open_label = crate::i18n::t("Open in browser");
+            let open_w =
+                (winui::text_width_font(&p, btn_font.clone(), open_label).ceil() + 22.0).max(110.0);
+            if saville_action_button(
+                ui,
+                &p,
+                egui::Rect::from_min_size(
+                    egui::pos2(o.x + 16.0 + details_w + 8.0, btn_y),
+                    vec2(open_w, btn_h),
+                ),
+                open_label,
+                SIGNAL_EMBER,
+                true,
+                ("saville-prog-open", self.id),
+            ) {
+                crate::launch::open_page(item.url.as_str());
+            }
+        }
+
+        let cancel_text = crate::i18n::t("Cancel");
+        let cancel_w =
+            (winui::text_width_font(&p, btn_font.clone(), cancel_text).ceil() + 26.0).max(78.0);
+        let cancel_x = o.x + 604.0 - cancel_w;
+
+        let running = item.status == Status::Downloading;
+        let (pause_key, pkind) = pause_button(item.status, live);
+        let pause_enabled = !matches!(pkind, ButtonKind::Disabled);
+        let pause_w = (winui::text_width_font(
+            &p,
+            btn_font,
+            crate::i18n::t(winui::widest_label(&p, pause_labels(self.live_stream))),
+        )
+        .ceil()
+            + 26.0)
+            .max(84.0);
+        let pause_x = cancel_x - 8.0 - pause_w;
+        let pause_cap = if running {
+            SIGNAL_OCHRE
+        } else {
+            SIGNAL_EMERALD
+        };
+        if saville_action_button(
+            ui,
+            &p,
+            egui::Rect::from_min_size(egui::pos2(pause_x, btn_y), vec2(pause_w, btn_h)),
+            crate::i18n::t(pause_key),
+            pause_cap,
+            pause_enabled,
+            ("saville-prog-pause", self.id),
+        ) {
+            action = if running {
+                Action::Pause
+            } else {
+                Action::Resume
+            };
+        }
+
+        if saville_action_button(
+            ui,
+            &p,
+            egui::Rect::from_min_size(egui::pos2(cancel_x, btn_y), vec2(cancel_w, btn_h)),
+            cancel_text,
+            SIGNAL_EMBER,
+            true,
+            ("saville-prog-cancel", self.id),
+        ) {
+            action = Action::Cancel;
+        }
+
+        // ---- 5. Expanded Details (y = 314..518 / 526) ----
+        if self.details && item.torrent.is_some() {
+            self.torrent_details(ui, &p, o + vec2(36.0, 96.0), item);
+        } else if self.details {
+            saville_segment_bar(&p, o, item, snap, drawn.1);
+            saville_connections(ui, &p, o, snap);
+        }
+
+        action
+    }
+
+    fn saville_sparkline(&self, p: &egui::Painter, x: f32, y: f32, w: f32, h: f32) {
+        use crate::saville::{SIGNAL_EMBER, SIGNAL_EMBER_BRIGHT};
+        let c = crate::theme::colors();
+        let micro = egui::FontId::new(9.0, egui::FontFamily::Name("segoe-bold".into()));
+        // Header micro-readouts: LIVE left, PEAK right.
+        winui::text_font(p, micro.clone(), x, y + 9.0, "PULSE", c.muted);
+        let peak_lbl = if self.peak_rate > 0.0 {
+            format!("PEAK {}", model::rate(self.peak_rate))
+        } else {
+            "PEAK —".to_owned()
+        };
+        let pw = winui::text_width_font(p, micro.clone(), &peak_lbl);
+        winui::text_font(
+            p,
+            micro,
+            (x + w - pw).max(x + 36.0),
+            y + 9.0,
+            &peak_lbl,
+            c.muted,
+        );
+
+        let plot_top = y + 15.0;
+        let plot_h = (h - 16.0).max(16.0);
+        let plot_bot = plot_top + plot_h;
+        // Baseline and 50% horizontal guide rules.
+        fill(p, x, plot_bot, x + w, plot_bot, c.list_frame);
+        let mid_y = (plot_top + plot_h * 0.5).round();
+        fill(p, x, mid_y, x + w, mid_y, c.table_line);
+
+        let max_v = self
+            .rate_samples
+            .iter()
+            .copied()
+            .fold(0.0_f64, f64::max)
+            .max(self.peak_rate)
+            .max(64.0 * 1024.0);
+        let n = self.rate_samples.len();
+        if n < 2 {
+            return;
+        }
+        let step_x = w / (n - 1) as f32;
+        let mut pts = Vec::with_capacity(n);
+        for (i, &val) in self.rate_samples.iter().enumerate() {
+            let norm = (val / max_v).clamp(0.0, 1.0) as f32;
+            let px_x = x + i as f32 * step_x;
+            let px_y = plot_bot - 1.0 - norm * (plot_h - 3.0);
+            pts.push(egui::pos2(px_x, px_y));
+            if val > 0.0 && i % 2 == 0 {
+                fill(
+                    p,
+                    px_x,
+                    px_y + 1.0,
+                    px_x,
+                    plot_bot - 1.0,
+                    Color32::from_rgba_unmultiplied(
+                        SIGNAL_EMBER.r(),
+                        SIGNAL_EMBER.g(),
+                        SIGNAL_EMBER.b(),
+                        46,
+                    ),
+                );
+            }
+        }
+        let mapped: Vec<Pos2> = pts
+            .iter()
+            .map(|pt| winui::rect(egui::Rect::from_min_size(*pt, vec2(0.0, 0.0))).min)
+            .collect();
+        p.add(egui::Shape::line(
+            mapped.clone(),
+            egui::Stroke::new(1.5, c.text),
+        ));
+        if let Some(&last_pt) = pts.last()
+            && self.rate_samples.back().copied().unwrap_or(0.0) > 0.0
+        {
+            let dot = winui::rect(egui::Rect::from_min_size(
+                egui::pos2(last_pt.x - 2.0, last_pt.y - 2.0),
+                vec2(4.0, 4.0),
+            ));
+            p.rect_filled(dot, 0.0, SIGNAL_EMBER_BRIGHT);
+        }
+    }
+
+    fn saville_tabs(&mut self, ui: &mut Ui, o: Pos2, event_count: usize) -> bool {
+        use crate::saville::SIGNAL_EMBER;
+        let tabs: Vec<(Tab, &str)> = [
+            (Tab::Status, crate::i18n::mark("Download status")),
+            (Tab::Limiter, crate::i18n::mark("Speed Limiter")),
+            (Tab::Completion, crate::i18n::mark("Options on completion")),
+            // i18n: tab title in the progress window: live engine event log
+            (Tab::Log, crate::i18n::mark("Log")),
+        ]
+        .into_iter()
+        .filter(|t| !self.hidden_tabs.contains(&t.0))
+        .collect();
+
+        let p = ui.painter().clone();
+        let c = crate::theme::colors();
+        let w = 620.0;
+        let top = o.y + 76.0;
+        let h = 28.0;
+        let strip = winui::rect(egui::Rect::from_min_size(egui::pos2(o.x, top), vec2(w, h)));
+        p.rect_filled(strip, 0.0, c.tree);
+        fill(
+            &p,
+            o.x,
+            top + h - 1.0,
+            o.x + w - 1.0,
+            top + h - 1.0,
+            c.list_frame,
+        );
+
+        let tab_button = self.tray && !cfg!(windows);
+        let max_right = if tab_button { w - 34.0 } else { w };
+        let font = egui::FontId::new(11.5, egui::FontFamily::Name("segoe".into()));
+        let font_bold = egui::FontId::new(11.5, egui::FontFamily::Name("segoe-bold".into()));
+
+        let mut x = 0.0_f32;
+        let current = tabs.iter().position(|t| t.0 == self.tab).unwrap_or(0);
+        for (i, &(tab_kind, key)) in tabs.iter().enumerate() {
+            let label = if tab_kind == Tab::Log && event_count > 0 {
+                format!("{} ({event_count})", crate::i18n::t(key))
+            } else {
+                crate::i18n::t(key).to_owned()
+            };
+            let sel = i == current;
+            let tw = winui::text_width_font(&p, font_bold.clone(), &label).ceil();
+            let remaining = (max_right - x).max(0.0);
+            let tw_box = (tw + 28.0).min(remaining);
+            if tw_box < 20.0 {
+                break;
+            }
+            let rect_en = egui::Rect::from_min_size(egui::pos2(o.x + x, top), vec2(tw_box, h));
+            let rc = winui::rect(rect_en);
+            let resp = ui.interact(
+                rc,
+                egui::Id::unique(("saville-prog-tab", self.id, i)),
+                egui::Sense::click(),
+            );
+            winui::expose(&resp, egui::Role::Tab, &label, true, Some(sel));
+            if resp.clicked() && !sel {
+                self.tab = tab_kind;
+            }
+            if resp.has_focus() {
+                if winui::take_key(ui, egui::Key::ArrowRight) && !tabs.is_empty() {
+                    self.tab = tabs[(i + 1) % tabs.len()].0;
+                } else if winui::take_key(ui, egui::Key::ArrowLeft) && !tabs.is_empty() {
+                    self.tab = tabs[(i + tabs.len() - 1) % tabs.len()].0;
+                }
+            }
+            if sel {
+                p.rect_filled(rc, 0.0, c.window);
+                let ind = winui::rect(egui::Rect::from_min_size(
+                    egui::pos2(o.x + x, top + h - 2.0),
+                    vec2(tw_box, 2.0),
+                ));
+                p.rect_filled(ind, 0.0, SIGNAL_EMBER);
+            } else if resp.hovered() {
+                p.rect_filled(
+                    winui::rect(egui::Rect::from_min_size(
+                        egui::pos2(o.x + x, top),
+                        vec2(tw_box, h - 1.0),
+                    )),
+                    0.0,
+                    c.tab_hot,
+                );
+            }
+            fill(
+                &p,
+                o.x + x + tw_box - 1.0,
+                top,
+                o.x + x + tw_box - 1.0,
+                top + h - 1.0,
+                c.list_frame,
+            );
+
+            let ink = if sel || resp.hovered() {
+                c.text
+            } else {
+                c.muted
+            };
+            let fnt = if sel { font_bold.clone() } else { font.clone() };
+            let clip = p.with_clip_rect(rc.shrink2(vec2(6.0, 0.0)));
+            winui::text_font(&clip, fnt, o.x + x + 14.0, top + 18.0, &label, ink);
+            x += tw_box;
+        }
+
+        self.tab_row_menu(ui, r(o, 0.0, 76.0, w, h));
+        tab_button
+            && winui::to_tray_button(
+                ui,
+                r(o, w - 28.0, 80.0, 22.0, 20.0),
+                "progress-hide",
+                crate::i18n::mark("Hide to the notification area"),
+            )
+            .clicked()
+    }
+
+    fn saville_status_page(
+        &mut self,
+        ui: &mut Ui,
+        o: Pos2,
+        item: &Item,
+        snap: Option<&Snapshot>,
+        frac: Option<f64>,
+        explained: bool,
+    ) {
+        use crate::saville::{SIGNAL_COBALT, SIGNAL_EMBER_BRIGHT, SIGNAL_EMERALD, SIGNAL_OCHRE};
+        let p = ui.painter().clone();
+        let c = crate::theme::colors();
+        let lx = o.x + 16.0;
+        let lw = 588.0;
+
+        if explained {
+            let box_rc = winui::rect(egui::Rect::from_min_size(
+                egui::pos2(lx, o.y + 114.0),
+                vec2(lw, 112.0),
+            ));
+            p.rect_filled(box_rc, 0.0, c.tree);
+            winui::solid(&p, r(o, 16.0, 114.0, lw, 112.0), c.list_frame);
+            fill(&p, lx, o.y + 114.0, lx + 2.0, o.y + 225.0, c.error);
+            winui::paragraph(
+                &p,
+                lx + 12.0,
+                o.y + 132.0,
+                &crate::i18n::sentence_start(item.error.as_deref().unwrap_or_default()),
+                c.text,
+                o.x + 596.0,
+                16.0,
+            );
+        } else {
+            // ---- 2x4 Architectural Telemetry Matrix (y = 114..216, height = 102px) ----
+            let ly = o.y + 114.0;
+            let row_h = 51.0;
+            let lh = row_h * 2.0;
+            let ledger_rc =
+                winui::rect(egui::Rect::from_min_size(egui::pos2(lx, ly), vec2(lw, lh)));
+            p.rect_filled(ledger_rc, 0.0, c.tree);
+            winui::solid(&p, r(o, 16.0, 114.0, lw, lh), c.list_frame);
+            fill(
+                &p,
+                lx + 1.0,
+                ly + row_h,
+                lx + lw - 2.0,
+                ly + row_h,
+                c.list_frame,
+            );
+
+            let cell_w = lw / 4.0;
+            let cap_font = egui::FontId::new(9.0, egui::FontFamily::Name("segoe-bold".into()));
+            let val_font = egui::FontId::new(12.5, egui::FontFamily::Name("segoe-bold".into()));
+            let sub_font = egui::FontId::new(10.0, egui::FontFamily::Name("segoe".into()));
+
+            let downloaded_val = size3(item.downloaded);
+            let downloaded_sub = match frac {
+                Some(f) if crate::i18n::code() == "en" => format!("{:.2}%", f * 100.0),
+                Some(f) => crate::i18n::percent(f, 2),
+                None => String::new(),
+            };
+            let size_val = item.size.map_or_else(|| "—".to_owned(), size3);
+            let size_sub = item
+                .size
+                .map(|t| format!("{} left", size3(t.saturating_sub(item.downloaded))))
+                .unwrap_or_default();
+            let eta_raw = item.time_left();
+            let eta_val = if eta_raw.is_empty() {
+                "—".to_owned()
+            } else {
+                eta_raw
+            };
+            let eta_sub = format!("Elapsed {}", format_elapsed(self.elapsed_secs()));
+
+            let avg = self.avg_rate();
+            let rate_val = if avg > 0.0 {
+                model::rate(avg)
+            } else if item.rate() > 0.0 {
+                model::rate(item.rate())
+            } else {
+                "—".to_owned()
+            };
+            let rate_sub = if self.peak_rate > 0.0 {
+                format!("Peak {}", model::rate(self.peak_rate))
+            } else {
+                String::new()
+            };
+
+            let total_conns = snap.map_or(0, |s| s.connections.len());
+            let active_conns = snap.map_or(0, |s| {
+                s.connections
+                    .iter()
+                    .filter(|conn| matches!(conn.status, ConnStatus::Receiving))
+                    .count()
+            });
+            let seg_count = snap.map_or(0, |s| s.segments.len());
+            let conn_val = if total_conns > 0 {
+                format!("{active_conns} / {total_conns}")
+            } else if item.video.is_some() {
+                "yt-dlp".to_owned()
+            } else {
+                "—".to_owned()
+            };
+            let conn_sub = if seg_count > 0 {
+                format!("{seg_count} segments")
+            } else {
+                String::new()
+            };
+            let conn_badge = if active_conns > 0 {
+                Some(SIGNAL_EMERALD)
+            } else if total_conns > 0 {
+                Some(SIGNAL_OCHRE)
+            } else {
+                None
+            };
+
+            let resume_val = match item.resumable {
+                Some(true) => crate::i18n::t("Yes").to_owned(),
+                Some(false) => crate::i18n::t("No").to_owned(),
+                None => "—".to_owned(),
+            };
+            let resume_sub = item.category.label().into_owned();
+
+            let seen = snap
+                .and_then(|s| s.server.as_ref())
+                .map(crate::whereis::Seen::from)
+                .or_else(|| item.server.clone());
+            let (server_val, server_sub, server_sub_col) =
+                saville_server_summary(item, seen.as_ref());
+
+            let (route_val, route_sub, route_badge) = if let Some(s) = snap
+                && s.nic_speeds.len() > 1
+            {
+                (
+                    format!("{} NICs", s.nic_speeds.len()),
+                    "Multi-NIC bonded".to_owned(),
+                    Some(SIGNAL_COBALT),
+                )
+            } else if !item.mirrors.is_empty() {
+                (
+                    format!("{} mirrors", item.mirrors.len() + 1),
+                    "Multi-mirror race".to_owned(),
+                    Some(SIGNAL_COBALT),
+                )
+            } else if let Some(hash) = &item.checksum {
+                (
+                    hash.algo.name().to_owned(),
+                    "Verify on complete".to_owned(),
+                    Some(SIGNAL_EMERALD),
+                )
+            } else if item.status == Status::Downloading
+                && !item.past_last_byte()
+                && let Some(limit) = self.limit
+            {
+                (
+                    model::rate(limit.rate() as f64),
+                    crate::i18n::t("Speed Limiter").to_owned(),
+                    Some(SIGNAL_OCHRE),
+                )
+            } else if item.private_window {
+                (
+                    "Private".to_owned(),
+                    "Isolated session".to_owned(),
+                    Some(SIGNAL_OCHRE),
+                )
+            } else {
+                (
+                    "Direct".to_owned(),
+                    item.file_address().host_str().unwrap_or("—").to_owned(),
+                    Some(SIGNAL_EMBER_BRIGHT),
+                )
+            };
+
+            #[allow(clippy::type_complexity)]
+            let matrix: [(&str, &str, String, String, Option<Color32>, Color32); 8] = [
+                (
+                    "Downloaded",
+                    crate::i18n::t("Downloaded"),
+                    downloaded_val,
+                    downloaded_sub,
+                    None,
+                    c.muted,
+                ),
+                (
+                    "File size",
+                    crate::i18n::t("File size"),
+                    size_val,
+                    size_sub,
+                    None,
+                    c.muted,
+                ),
+                (
+                    "Time left",
+                    crate::i18n::t("Time left"),
+                    eta_val,
+                    eta_sub,
+                    None,
+                    c.muted,
+                ),
+                (
+                    "Transfer rate",
+                    crate::i18n::t("Transfer rate"),
+                    rate_val,
+                    rate_sub,
+                    None,
+                    c.muted,
+                ),
+                (
+                    "Connection",
+                    crate::i18n::t("Connection"),
+                    conn_val,
+                    conn_sub,
+                    conn_badge,
+                    c.muted,
+                ),
+                (
+                    "Resume capability",
+                    crate::i18n::t("Resume capability"),
+                    resume_val,
+                    resume_sub,
+                    match item.resumable {
+                        Some(true) => Some(SIGNAL_EMERALD),
+                        Some(false) => Some(SIGNAL_OCHRE),
+                        None => None,
+                    },
+                    c.muted,
+                ),
+                (
+                    "Server",
+                    crate::i18n::t("Server"),
+                    server_val,
+                    server_sub,
+                    None,
+                    server_sub_col,
+                ),
+                (
+                    "Route",
+                    "ROUTE / VERIFY",
+                    route_val,
+                    route_sub,
+                    route_badge,
+                    c.muted,
+                ),
+            ];
+
+            for (idx, (key, caption, value, sub, badge, sub_col)) in matrix.iter().enumerate() {
+                let row = idx / 4;
+                let col = idx % 4;
+                let cx = lx + col as f32 * cell_w;
+                let cy = ly + row as f32 * row_h;
+                if col > 0 {
+                    fill(&p, cx, cy + 1.0, cx, cy + row_h - 1.0, c.list_frame);
+                }
+                let clip = p.with_clip_rect(winui::rect(egui::Rect::from_min_size(
+                    egui::pos2(cx + 9.0, cy + 2.0),
+                    vec2(cell_w - 14.0, row_h - 4.0),
+                )));
+                winui::text_font(
+                    &clip,
+                    cap_font.clone(),
+                    cx + 9.0,
+                    cy + 14.0,
+                    &caption.to_uppercase(),
+                    c.muted,
+                );
+                let mut vx = cx + 9.0;
+                if let Some(bcol) = badge {
+                    let sq = winui::rect(egui::Rect::from_min_size(
+                        egui::pos2(vx, cy + 23.0),
+                        vec2(6.0, 6.0),
+                    ));
+                    p.rect_filled(sq, 0.0, *bcol);
+                    vx += 10.0;
+                }
+                let vcol = if value == "—" { c.muted } else { c.text };
+                winui::text_font(&clip, val_font.clone(), vx, cy + 31.0, value, vcol);
+                if !sub.is_empty() {
+                    winui::text_font(&clip, sub_font.clone(), cx + 9.0, cy + 44.0, sub, *sub_col);
+                }
+                let cell_rc = winui::rect(egui::Rect::from_min_size(
+                    egui::pos2(cx + 6.0, cy + 18.0),
+                    vec2(cell_w - 10.0, 30.0),
+                ));
+                winui::copyable(ui, cell_rc, key, value, false);
+            }
+
+            // ---- Live Multi-NIC Breakdown / Latest Engine Event Ticker (y = 221..237) ----
+            let tick_y = o.y + 232.0;
+            if let Some(s) = snap
+                && s.nic_speeds.len() > 1
+            {
+                let summary: String = s
+                    .nic_speeds
+                    .iter()
+                    .map(|n| {
+                        format!(
+                            "{} {} ({}w)",
+                            n.label,
+                            model::rate(n.speed as f64),
+                            n.active_workers
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join("  ·  ");
+                let sq = winui::rect(egui::Rect::from_min_size(
+                    egui::pos2(lx, tick_y - 7.0),
+                    vec2(6.0, 6.0),
+                ));
+                p.rect_filled(sq, 0.0, SIGNAL_COBALT);
+                let (rc, cut) = winui::text_fit(&p, lx + 11.0, tick_y, &summary, c.text, lx + lw);
+                winui::copyable(ui, rc, "nic-summary", &summary, cut);
+            } else if let Some(why) = item.video_helper() {
+                let line = helper_line(&why);
+                let sq = winui::rect(egui::Rect::from_min_size(
+                    egui::pos2(lx, tick_y - 7.0),
+                    vec2(6.0, 6.0),
+                ));
+                p.rect_filled(sq, 0.0, SIGNAL_OCHRE);
+                let (rc, cut) = winui::text_fit(&p, lx + 11.0, tick_y, &line, c.muted, lx + lw);
+                winui::copyable(ui, rc, "helper", &line, cut);
+            } else if let Some(ev) = snap
+                .and_then(|s| s.events.last().map(|e| e.text.as_str()))
+                .or_else(|| item.log.last().map(|(_, t)| t.as_str()))
+            {
+                let sq = winui::rect(egui::Rect::from_min_size(
+                    egui::pos2(lx, tick_y - 7.0),
+                    vec2(6.0, 6.0),
+                ));
+                p.rect_filled(sq, 0.0, SIGNAL_COBALT);
+                let (rc, cut) = winui::text_fit(&p, lx + 11.0, tick_y, ev, c.muted, lx + lw);
+                winui::copyable(ui, rc, "last-event", ev, cut);
+            }
+        }
+
+        // Flush-aligned deferred rename row (Confirm hugs x = 604 unless "Saved" is visible).
+        self.rename_row_at(ui, &p, o, 244.0, 16.0, 604.0, 88.0, c.muted, item);
+    }
+
+    fn saville_log_page(
+        &self,
+        ui: &mut Ui,
+        p: &egui::Painter,
+        o: Pos2,
+        item: &Item,
+        snap: Option<&Snapshot>,
+    ) {
+        let c = crate::theme::colors();
+        let x0 = o.x + 16.0;
+        let y0 = o.y + 114.0;
+        let w = 588.0;
+        let h = 150.0;
+        let outer_rc = winui::rect(egui::Rect::from_min_size(egui::pos2(x0, y0), vec2(w, h)));
+        p.rect_filled(outer_rc, 0.0, c.header);
+        winui::solid(p, r(o, 16.0, 114.0, w, h), c.list_frame);
+
+        let lines: Vec<String> = if let Some(s) = snap
+            && !s.events.is_empty()
+        {
+            s.events
+                .iter()
+                .rev()
+                .map(|e| format!("#{:02}  {}", e.seq, e.text))
+                .collect()
+        } else {
+            item.log.iter().rev().map(|(_, t)| t.clone()).collect()
+        };
+
+        let key = egui::Id::unique(("saville-log-scroll", ui.ctx().viewport_id()));
+        let visible = 8usize;
+        let row_h = 18.0;
+        let body = r(o, 17.0, 115.0, w - 19.0, h - 2.0);
+        let first = first_row(ui, key, body, lines.len(), visible);
+        let clip = p.with_clip_rect(body);
+        if lines.is_empty() {
+            text(&clip, x0 + 12.0, y0 + 22.0, "—", c.muted);
+        } else {
+            for (k, line) in lines.iter().skip(first).take(visible + 1).enumerate() {
+                let top = y0 + 2.0 + row_h * k as f32;
+                if k > 0 {
+                    fill(&clip, x0 + 1.0, top, x0 + w - 18.0, top, c.table_line);
+                }
+                let (rc, cut) =
+                    winui::text_fit(&clip, x0 + 10.0, top + 13.0, line, c.text, x0 + w - 22.0);
+                if cut {
+                    winui::full_on_hover(ui, rc.intersect(body), ("log-row", first + k), line);
+                }
+            }
+        }
+        rows_bar(
+            ui,
+            key,
+            r(o, 16.0 + w - 18.0, 115.0, 17.0, h - 2.0),
+            lines.len(),
+            visible,
+            first,
+        );
+    }
+}
+
+fn format_elapsed(secs: u64) -> String {
+    let h = secs / 3600;
+    let m = (secs % 3600) / 60;
+    let s = secs % 60;
+    if h > 0 {
+        format!("{h}:{m:02}:{s:02}")
+    } else {
+        format!("{m}:{s:02}")
+    }
+}
+
+fn saville_server_summary(
+    item: &Item,
+    seen: Option<&crate::whereis::Seen>,
+) -> (String, String, Color32) {
+    let c = crate::theme::colors();
+    let Some(seen) = seen else {
+        let host = item.file_address().host_str().unwrap_or("—").to_owned();
+        return (host, String::new(), c.muted);
+    };
+    let place = if let Some(cdn) = &seen.cdn {
+        cdn.clone()
+    } else if let Some(ip) = seen.ip {
+        if ip.is_loopback() {
+            crate::i18n::t("this computer").to_owned()
+        } else if blazingdl_geo::ready() {
+            blazingdl_geo::country(ip)
+                .map(|cc| {
+                    crate::countries::name(cc.code())
+                        .unwrap_or(cc.code())
+                        .to_owned()
+                })
+                .unwrap_or_else(|| ip.to_string())
+        } else {
+            blazingdl_geo::prepare();
+            ip.to_string()
+        }
+    } else {
+        item.file_address().host_str().unwrap_or("—").to_owned()
+    };
+    let (sub, col) = match (seen.ip, seen.rtt_ms) {
+        (Some(ip), Some(ms)) => {
+            let rcol = match crate::whereis::reach(ms) {
+                crate::whereis::Reach::Near => c.reach_near,
+                crate::whereis::Reach::Medium => c.reach_medium,
+                crate::whereis::Reach::Far => c.reach_far,
+            };
+            (format!("{ip} · {ms} ms"), rcol)
+        }
+        (None, Some(ms)) => {
+            let rcol = match crate::whereis::reach(ms) {
+                crate::whereis::Reach::Near => c.reach_near,
+                crate::whereis::Reach::Medium => c.reach_medium,
+                crate::whereis::Reach::Far => c.reach_far,
+            };
+            (format!("{ms} ms"), rcol)
+        }
+        (Some(ip), None) => (ip.to_string(), c.muted),
+        (None, None) => (String::new(), c.muted),
+    };
+    (place, sub, col)
+}
+
+/// Shared status string computation used by both Classic and Saville progress windows.
+fn status_text(item: &Item, snap: Option<&Snapshot>, explained: bool) -> String {
+    match item.status {
+        _ if let Some(live) = live_status(item.live_state()) => live.to_owned(),
+        _ if let Some(checking) = item.torrent_checking() => checking,
+        _ if let Some(finishing) = item.finishing(false) => finishing,
+        Status::Downloading if item.at_service().is_some() => item.at_service().unwrap_or_default(),
+        Status::Downloading => {
+            let receiving = snap.is_some_and(|s| {
+                s.connections
+                    .iter()
+                    .any(|c| matches!(c.status, ConnStatus::Receiving))
+            }) || ((item.video.is_some() || item.torrent.is_some())
+                && item.rate() > 0.0);
+            let completing = item.torrent.is_none()
+                && snap.is_some_and(|s| {
+                    s.state == blazingdl_engine::download::State::Completing
+                        || (s.size.is_some_and(|t| t > 0 && s.downloaded >= t)
+                            && !s
+                                .connections
+                                .iter()
+                                .any(|c| matches!(c.status, ConnStatus::Connecting)))
+                });
+            if completing {
+                // i18n: a download's status: every byte is in, the file is being written out and given its name
+                crate::i18n::t("Finishing...")
+            } else if receiving {
+                crate::i18n::t("Receiving data...")
+            } else {
+                crate::i18n::t("Connecting...")
+            }
+            .to_owned()
+        }
+        // i18n: a download's status (state it is in, not a command): finished
+        Status::Complete => crate::i18n::t("Complete").to_owned(),
+        // i18n: a download's status (state it is in, not a command): stopped for now
+        Status::Stopped => crate::i18n::t("Paused").to_owned(),
+        // i18n: a download's status (state it is in, not a command): waiting in a queue
+        Status::Queued => crate::i18n::t("Waiting").to_owned(),
+        // The site's page instead of the file (#701): why, and what to do, under it.
+        Status::Error if explained => crate::i18n::t("Error").to_owned(),
+        Status::Error => crate::i18n::fmt(
+            // i18n: a download's status: it failed, with the reason
+            crate::i18n::t("Error: {error}"),
+            &[(
+                "error",
+                // i18n: the reason a download failed is not known
+                item.error.as_deref().unwrap_or(crate::i18n::t("unknown")),
+            )],
+        ),
+    }
+}
+
+/// Machined 0px Saville command button with a 3px leading signal end-cap.
+fn saville_action_button(
+    ui: &mut Ui,
+    p: &egui::Painter,
+    rect_en: egui::Rect,
+    label: &str,
+    cap: Color32,
+    enabled: bool,
+    id_src: impl std::hash::Hash + std::fmt::Debug,
+) -> bool {
+    let c = crate::theme::colors();
+    let rc = winui::rect(rect_en);
+    let sense = if enabled {
+        egui::Sense::click()
+    } else {
+        egui::Sense::hover()
+    };
+    let resp = ui.interact(rc, egui::Id::unique(id_src), sense);
+    winui::expose(&resp, egui::Role::Button, label, enabled, None);
+    let hot = enabled && resp.hovered();
+    let down = enabled && resp.is_pointer_button_down_on();
+    let (bg, border, ink, cap_col) = if !enabled {
+        (
+            c.button_disabled,
+            c.button_disabled_border,
+            c.text_disabled,
+            c.button_disabled_border,
+        )
+    } else if down {
+        (c.button_pressed, c.accent, c.button_text, cap)
+    } else if hot {
+        (
+            c.button_hot,
+            crate::saville::SIGNAL_STEEL,
+            c.button_text,
+            cap,
+        )
+    } else {
+        (c.button, c.button_border, c.button_text, cap)
+    };
+    p.rect_filled(rc, 0.0, bg);
+    p.rect_stroke(
+        rc,
+        0.0,
+        egui::Stroke::new(1.0, border),
+        egui::StrokeKind::Inside,
+    );
+    let cap_rc = winui::rect(egui::Rect::from_min_size(
+        rect_en.min,
+        vec2(3.0, rect_en.height()),
+    ));
+    p.rect_filled(cap_rc, 0.0, cap_col);
+    if resp.has_focus() {
+        p.rect_stroke(
+            rc.shrink(1.5),
+            0.0,
+            egui::Stroke::new(1.0, c.focus_ring),
+            egui::StrokeKind::Inside,
+        );
+    }
+    let font = egui::FontId::new(11.0, egui::FontFamily::Name("segoe-bold".into()));
+    let tw = winui::text_width_font(p, font.clone(), label);
+    let tx = rect_en.min.x + 3.0 + ((rect_en.width() - 3.0 - tw) * 0.5).max(6.0);
+    let clip = p.with_clip_rect(rc.shrink2(vec2(4.0, 0.0)));
+    winui::text_font(&clip, font, tx, rect_en.min.y + 17.0, label, ink);
+    enabled && (resp.clicked() || (resp.has_focus() && winui::take_key(ui, egui::Key::Enter)))
+}
+
+/// Flat Saville segment map (y = 322..360): 8x8 ember block header + 18px machined segment track.
+fn saville_segment_bar(
+    p: &egui::Painter,
+    o: Pos2,
+    item: &Item,
+    snap: Option<&Snapshot>,
+    segments: &[(u64, f64)],
+) {
+    use crate::saville::{SIGNAL_EMBER, SIGNAL_EMBER_BRIGHT, SIGNAL_EMERALD};
+    let c = crate::theme::colors();
+    let head_sq = winui::rect(egui::Rect::from_min_size(
+        egui::pos2(o.x + 16.0, o.y + 326.0),
+        vec2(8.0, 8.0),
+    ));
+    p.rect_filled(head_sq, 0.0, SIGNAL_EMBER);
+    let cap_font = egui::FontId::new(10.5, egui::FontFamily::Name("segoe-bold".into()));
+    winui::text_font(
+        p,
+        cap_font.clone(),
+        o.x + 30.0,
+        o.y + 334.0,
+        crate::i18n::t("Start positions and download progress by connections"),
+        c.muted,
+    );
+    let total_conns = snap.map_or(0, |s| s.connections.len());
+    let active_conns = snap.map_or(0, |s| {
+        s.connections
+            .iter()
+            .filter(|conn| matches!(conn.status, ConnStatus::Receiving))
+            .count()
+    });
+    if total_conns > 0 {
+        let count_str = format!("{active_conns}/{total_conns} ACTIVE");
+        let cw = winui::text_width_font(p, cap_font.clone(), &count_str);
+        winui::text_font(
+            p,
+            cap_font,
+            o.x + 604.0 - cw,
+            o.y + 334.0,
+            &count_str,
+            if active_conns > 0 {
+                SIGNAL_EMERALD
+            } else {
+                c.muted
+            },
+        );
+    }
+
+    let x0 = o.x + 16.0;
+    let y0 = o.y + 342.0;
+    let w = 588.0;
+    let h = 18.0;
+    let track_rc = winui::rect(egui::Rect::from_min_size(egui::pos2(x0, y0), vec2(w, h)));
+    p.rect_filled(track_rc, 0.0, c.header);
+    winui::solid(p, r(o, 16.0, 342.0, w, h), c.list_frame);
+
+    let Some(total) = item.size.filter(|t| *t > 0) else {
+        return;
+    };
+    let inner_x = x0 + 1.0;
+    let inner_w = w - 2.0;
+    let (fill_col, crest_col) = if item.status == Status::Complete {
+        (SIGNAL_EMERALD, SIGNAL_EMERALD)
+    } else {
+        (SIGNAL_EMBER, SIGNAL_EMBER_BRIGHT)
+    };
+    let col = |v: f64| (v / total as f64 * (inner_w - 1.0) as f64).floor() as f32;
+    for &(start, done) in segments {
+        if let Some((a, b)) = segment_columns(start, done, total, f64::from(inner_w - 1.0)) {
+            fill(
+                p,
+                inner_x + a,
+                y0 + 1.0,
+                inner_x + b,
+                y0 + h - 2.0,
+                fill_col,
+            );
+            fill(p, inner_x + a, y0 + 1.0, inner_x + b, y0 + 2.0, crest_col);
+        }
+        let sx = inner_x + col(start as f64);
+        fill(p, sx, y0 + 1.0, sx, y0 + h - 2.0, c.text);
+    }
+}
+
+/// 4-column Saville Transfer Table connections list (y = 368..508): N. | DOWNLOADED | SPEED | INFO.
+fn saville_connections(ui: &mut Ui, p: &egui::Painter, o: Pos2, snap: Option<&Snapshot>) {
+    use crate::saville::{SIGNAL_EMBER_BRIGHT, SIGNAL_EMERALD, SIGNAL_OCHRE};
+    let c = crate::theme::colors();
+    let x0 = o.x + 16.0;
+    let y0 = o.y + 368.0;
+    let w = 588.0;
+    let h = 140.0;
+    let head_h = 24.0;
+
+    let outer_rc = winui::rect(egui::Rect::from_min_size(egui::pos2(x0, y0), vec2(w, h)));
+    p.rect_filled(outer_rc, 0.0, c.list);
+    winui::solid(p, r(o, 16.0, 368.0, w, h), c.list_frame);
+
+    let head_rc = winui::rect(egui::Rect::from_min_size(
+        egui::pos2(x0 + 1.0, y0 + 1.0),
+        vec2(w - 2.0, head_h),
+    ));
+    p.rect_filled(head_rc, 0.0, c.header);
+    fill(
+        p,
+        x0 + 1.0,
+        y0 + head_h,
+        x0 + w - 2.0,
+        y0 + head_h,
+        c.list_frame,
+    );
+
+    let mut conns: Vec<_> = snap
+        .map(|s| s.connections.iter().collect())
+        .unwrap_or_default();
+    conns.sort_by_key(|conn| conn.id);
+
+    let number = crate::i18n::t("N.");
+    let widest = conns
+        .iter()
+        .map(|conn| winui::text_width(p, &(conn.id + 1).to_string()))
+        .fold(0.0, f32::max);
+    let dx = number_column_extra(widest, winui::text_width(p, number));
+    let cap_font = egui::FontId::new(10.0, egui::FontFamily::Name("segoe-bold".into()));
+    winui::text_font(p, cap_font.clone(), x0 + 12.0, y0 + 16.0, number, c.muted);
+    winui::text_font(
+        p,
+        cap_font.clone(),
+        x0 + 50.0 + dx,
+        y0 + 16.0,
+        &crate::i18n::t("Downloaded").to_uppercase(),
+        c.muted,
+    );
+    winui::text_font(
+        p,
+        cap_font.clone(),
+        x0 + 158.0 + dx,
+        y0 + 16.0,
+        &crate::i18n::t("Transfer rate").to_uppercase(),
+        c.muted,
+    );
+    winui::text_font(
+        p,
+        cap_font,
+        x0 + 276.0 + dx,
+        y0 + 16.0,
+        &crate::i18n::t("Info").to_uppercase(),
+        c.muted,
+    );
+
+    let key = egui::Id::unique(("conn-scroll", ui.ctx().viewport_id()));
+    let visible = 6usize;
+    let row_h = 18.0;
+    let body = r(o, 17.0, 368.0 + head_h + 1.0, w - 19.0, h - head_h - 4.0);
+    let first = first_row(ui, key, body, conns.len(), visible);
+    let clip = p.with_clip_rect(body);
+    for (k, conn) in conns.iter().skip(first).take(visible + 1).enumerate() {
+        let top = y0 + head_h + 2.0 + row_h * k as f32;
+        if k > 0 {
+            fill(&clip, x0 + 1.0, top, x0 + w - 18.0, top, c.table_line);
+        }
+        winui::text_right_within(
+            &clip,
+            x0 + 32.0 + dx,
+            top + 13.0,
+            &(conn.id + 1).to_string(),
+            c.muted,
+            x0 + 8.0,
+        );
+        text(
+            &clip,
+            x0 + 50.0 + dx,
+            top + 13.0,
+            &size3(conn.downloaded),
+            c.text,
+        );
+        let (speed_str, speed_col) = if conn.speed > 0 {
+            (model::rate(conn.speed as f64), SIGNAL_EMBER_BRIGHT)
+        } else {
+            ("—".to_owned(), c.muted)
+        };
+        text(&clip, x0 + 158.0 + dx, top + 13.0, &speed_str, speed_col);
+        let (dot_col, info) = match &conn.status {
+            ConnStatus::Connecting => (SIGNAL_OCHRE, crate::i18n::t("Connecting...").to_owned()),
+            ConnStatus::Receiving => (
+                SIGNAL_EMERALD,
+                crate::i18n::t("Receiving data...").to_owned(),
+            ),
+            ConnStatus::Retrying(e) => (
+                SIGNAL_OCHRE,
+                crate::i18n::fmt(
+                    crate::i18n::t("Retrying: {error}"),
+                    &[("error", &crate::errors::describe(e))],
+                ),
+            ),
+            ConnStatus::Finished => (c.muted, String::new()),
+            ConnStatus::Failed(e) => (
+                c.error,
+                crate::i18n::fmt(
+                    crate::i18n::t("Error: {error}"),
+                    &[("error", &crate::errors::describe(e))],
+                ),
+            ),
+            ConnStatus::Retired { host, cap } => (
+                c.muted,
+                crate::i18n::fmt(
+                    &crate::i18n::tn(
+                        u64::from(*cap),
+                        "{host} allows {n} connection",
+                        "{host} allows {n} connections",
+                    ),
+                    &[("host", &crate::i18n::ltr(host))],
+                ),
+            ),
+        };
+        if !info.is_empty() {
+            let dot = winui::rect(egui::Rect::from_min_size(
+                egui::pos2(x0 + 276.0 + dx, top + 6.0),
+                vec2(6.0, 6.0),
+            ));
+            clip.rect_filled(dot, 0.0, dot_col);
+        }
+        let (rect, cut) = winui::text_fit(
+            &clip,
+            x0 + 288.0 + dx,
+            top + 13.0,
+            &info,
+            c.text,
+            x0 + w - 22.0,
+        );
+        if cut {
+            winui::full_on_hover(ui, rect.intersect(body), ("conn", conn.id), &info);
+        }
+    }
+    rows_bar(
+        ui,
+        key,
+        r(
+            o,
+            16.0 + w - 18.0,
+            368.0 + head_h + 1.0,
+            17.0,
+            h - head_h - 2.0,
+        ),
+        conns.len(),
+        visible,
+        first,
+    );
 }
 
 fn rename_error_message(err: crate::deferred_rename::RenameError) -> &'static str {

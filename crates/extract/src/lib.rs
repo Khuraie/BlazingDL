@@ -31,7 +31,7 @@ pub use check::{Damage, Verdict};
 pub use external::find_7zip;
 pub use hatchzip::find_hatchzip;
 pub use safe::Limits;
-pub use stream_unpack::{StreamUnpackError, StreamUnpackReport, UnpackProgress};
+pub use stream_unpack::{StreamUnpackError, StreamUnpackReport, UnpackHttp, UnpackProgress};
 pub use volumes::{OnDisk, Volume, VolumeKind, on_disk, set_key, spanned_part, volume_key};
 
 /// What an archive is, by its first bytes (and, for a compressed tar, its name).
@@ -43,10 +43,13 @@ pub enum Format {
     Tar,
     TarGz,
     TarXz,
+    TarZst,
     /// One file compressed with gzip (not a tar).
     Gz,
     /// One file compressed with xz (not a tar).
     Xz,
+    /// One file compressed with zstd (not a tar).
+    Zst,
 }
 
 impl Format {
@@ -101,6 +104,12 @@ impl Format {
                 Format::TarXz
             } else {
                 Format::Xz
+            })
+        } else if head.starts_with(&[0x28, 0xB5, 0x2F, 0xFD]) {
+            Some(if tar_named(&[".tar.zst", ".tzst"]) {
+                Format::TarZst
+            } else {
+                Format::Zst
             })
         } else if head.len() >= 262 && &head[257..262] == b"ustar" {
             Some(Format::Tar)
@@ -251,7 +260,8 @@ pub fn base_name(archive: &Path) -> String {
     }
     let lower = name.to_lowercase();
     for ext in [
-        ".tar.gz", ".tar.xz", ".tgz", ".txz", ".zip", ".7z", ".rar", ".tar", ".gz", ".xz",
+        ".tar.gz", ".tar.xz", ".tar.zst", ".tgz", ".txz", ".tzst", ".zip", ".7z", ".rar", ".tar",
+        ".gz", ".xz", ".zst",
     ] {
         if lower.ends_with(ext) && lower.len() > ext.len() {
             return name[..name.len() - ext.len()].to_owned();
@@ -268,7 +278,7 @@ pub fn extract(archive: &Path, policy: &mut Policy<'_>) -> Result<Report, Error>
     // archive is already gone, and only it knows where it was. HatchZip's progress file alone
     // (it may have come with the download) starts nothing: the archive is extracted as usual.
     if let (Some(tool), Some(runs)) = (policy.hatchzip.clone(), policy.runs.clone())
-        && !matches!(format, Format::Gz | Format::Xz)
+        && !matches!(format, Format::Gz | Format::Xz | Format::Zst)
     {
         let runs = hatchzip::Runs::new(runs);
         let full = std::path::absolute(archive)?;
@@ -309,8 +319,10 @@ pub fn extract(archive: &Path, policy: &mut Policy<'_>) -> Result<Report, Error>
     let mut w = safe::Writer::new(staging.path(), policy.limits, policy.cancel);
     let run = match format {
         Format::Zip => zip_fmt::extract(archive, &mut w, policy.password.as_deref()),
-        Format::Tar | Format::TarGz | Format::TarXz => tar_fmt::extract(archive, format, &mut w),
-        Format::Gz | Format::Xz => single::extract(archive, format, &mut w),
+        Format::Tar | Format::TarGz | Format::TarXz | Format::TarZst => {
+            tar_fmt::extract(archive, format, &mut w)
+        }
+        Format::Gz | Format::Xz | Format::Zst => single::extract(archive, format, &mut w),
         Format::SevenZip | Format::Rar => {
             // A split 7z's volumes are all there before 7-Zip is asked (it would only say
             // "unexpected end"): the first one missing is named.

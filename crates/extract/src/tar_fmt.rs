@@ -12,6 +12,9 @@ pub fn extract(archive: &Path, format: Format, w: &mut Writer) -> Result<(), Err
     let reader: Box<dyn Read> = match format {
         Format::TarGz => Box::new(flate2::read::MultiGzDecoder::new(file)),
         Format::TarXz => Box::new(lzma_rust2::XzReader::new(file, true)),
+        Format::TarZst => Box::new(
+            ruzstd::StreamingDecoder::new(file).map_err(|e| Error::Damaged(e.to_string()))?,
+        ),
         _ => Box::new(file),
     };
     let mut tar = tar::Archive::new(reader);

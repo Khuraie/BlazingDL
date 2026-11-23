@@ -84,7 +84,12 @@ fn matches(item: &Item, offer: &Offer) -> Option<u8> {
         (Some(a), Some(b)) => a == b,
         _ => false,
     };
-    let name = !offer.name.is_empty() && item.file_name.eq_ignore_ascii_case(offer.name);
+    let name = !offer.name.is_empty()
+        && (item.file_name.eq_ignore_ascii_case(offer.name)
+            || (item.unpack.is_some()
+                && item.file_name.eq_ignore_ascii_case(
+                    &blazingdl_extract::stream_unpack::strip_archive_suffix(offer.name),
+                )));
     // The name decides; a size alone never does (a multi-part archive's parts have one).
     match (name, size) {
         (true, true) => Some(2),

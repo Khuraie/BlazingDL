@@ -524,6 +524,19 @@ pub struct Item {
     /// (or its one file, once known).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub remote: Option<RemoteSpec>,
+    /// AntiCompress 1× disk streaming unpack target (`.zip`, `.tar.*`, `.acpkg`), persisted so
+    /// Pause → Resume and app restarts continue cleanly without falling back to raw file download.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unpack: Option<UnpackSpec>,
+    /// Original archive file path kept in memory when routing an archive into 1× disk stream
+    /// unpack, so an `Unsupported` server (no HTTP Range, encrypted ZIP) transparently falls back
+    /// to a standard download to this exact file path.
+    #[serde(skip)]
+    pub unpack_fallback: Option<PathBuf>,
+    /// Set by `Item::poll` when a `Job::Unpack` fails with `Unsupported` before extracting any
+    /// files, telling `App::poll` to transparently switch to a normal engine download.
+    #[serde(skip)]
+    pub unpack_unsupported: bool,
     /// Safe deferred main name chosen in the progress window: applied in place once the
     /// download reaches `Status::Complete`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -671,6 +684,30 @@ pub enum Job {
     Unpack(UnpackJob),
 }
 
+/// Persisted metadata for an AntiCompress 1× disk streaming unpack item (enables Pause → Resume
+/// and seamless resume across app restarts).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum UnpackSpec {
+    RemoteUrl,
+    LocalAcpkg { source: PathBuf },
+}
+
+/// Terminal error recorded by a streaming unpack task, preserving whether the failure is an
+/// `Unsupported` condition (e.g. non-Range server or encrypted ZIP) eligible for automatic
+/// fallback to standard download + post-extract.
+#[derive(Clone, Debug)]
+pub struct UnpackFailure {
+    pub message: String,
+    pub unsupported: bool,
+}
+
+struct NicRateState {
+    at: Instant,
+    prev: std::collections::BTreeMap<String, u64>,
+    rates: std::collections::BTreeMap<String, u64>,
+}
+
 /// Live handle for an AntiCompress 1× disk streaming unpack task shown in the Transfer Table.
 pub struct UnpackJob {
     pub url: Url,
@@ -678,15 +715,54 @@ pub struct UnpackJob {
     pub progress: std::sync::Arc<blazingdl_extract::UnpackProgress>,
     pub cancel: std::sync::Arc<std::sync::atomic::AtomicBool>,
     pub done: std::sync::Arc<
-        std::sync::Mutex<Option<Result<blazingdl_extract::StreamUnpackReport, String>>>,
+        std::sync::Mutex<Option<Result<blazingdl_extract::StreamUnpackReport, UnpackFailure>>>,
     >,
+    nic_rates: std::sync::Mutex<NicRateState>,
 }
 
 impl UnpackJob {
+    pub fn new(
+        url: Url,
+        dest: PathBuf,
+        progress: std::sync::Arc<blazingdl_extract::UnpackProgress>,
+        cancel: std::sync::Arc<std::sync::atomic::AtomicBool>,
+        done: std::sync::Arc<
+            std::sync::Mutex<Option<Result<blazingdl_extract::StreamUnpackReport, UnpackFailure>>>,
+        >,
+    ) -> Self {
+        Self {
+            url,
+            dest,
+            progress,
+            cancel,
+            done,
+            nic_rates: std::sync::Mutex::new(NicRateState {
+                at: Instant::now(),
+                prev: std::collections::BTreeMap::new(),
+                rates: std::collections::BTreeMap::new(),
+            }),
+        }
+    }
+
+    /// True when the stream unpack failed with `Unsupported` before extracting any files.
+    pub fn unsupported_fallback(&self) -> bool {
+        self.progress
+            .files_done
+            .load(std::sync::atomic::Ordering::Relaxed)
+            == 0
+            && self
+                .done
+                .lock()
+                .ok()
+                .is_some_and(|g| matches!(&*g, Some(Err(f)) if f.unsupported))
+    }
+
     pub fn snapshot(&self) -> blazingdl_engine::Snapshot {
+        use blazingdl_engine::download::{ConnStatus, ConnView, Event};
         use std::sync::atomic::Ordering;
         let total = self.progress.total_bytes.load(Ordering::Relaxed);
         let done = self.progress.done_bytes.load(Ordering::Relaxed);
+        let workers = self.progress.active_workers.load(Ordering::Relaxed) as usize;
         let outcome = self.done.lock().unwrap().clone();
         let (state, error, size, downloaded) = match outcome {
             Some(Ok(rep)) => {
@@ -698,13 +774,13 @@ impl UnpackJob {
                     final_bytes,
                 )
             }
-            Some(Err(e)) => {
-                let st = if self.cancel.load(Ordering::Relaxed) || e == "cancelled" {
+            Some(Err(f)) => {
+                let st = if self.cancel.load(Ordering::Relaxed) || f.message == "cancelled" {
                     blazingdl_engine::download::State::Cancelled
                 } else {
                     blazingdl_engine::download::State::Failed
                 };
-                (st, Some(e), (total > 0).then_some(total), done)
+                (st, Some(f.message), (total > 0).then_some(total), done)
             }
             None => (
                 blazingdl_engine::download::State::Downloading,
@@ -722,6 +798,53 @@ impl UnpackJob {
                 }]
             })
             .unwrap_or_default();
+        let connections = if matches!(state, blazingdl_engine::download::State::Downloading) {
+            let n = workers.clamp(1, 8) as u32;
+            (0..n)
+                .map(|id| ConnView {
+                    id,
+                    downloaded: done / u64::from(n),
+                    status: ConnStatus::Receiving,
+                    speed: 0,
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
+        let events = self
+            .progress
+            .snapshot_events()
+            .into_iter()
+            .map(|(seq, at, text)| Event { seq, at, text })
+            .collect();
+        let nic_raw = self.progress.snapshot_nic_bytes();
+        let nic_speeds = if nic_raw.is_empty() {
+            Vec::new()
+        } else {
+            let mut guard = self.nic_rates.lock().unwrap();
+            let now = Instant::now();
+            let dt = now.duration_since(guard.at).as_secs_f64();
+            if dt >= 0.5 {
+                let mut rates = std::collections::BTreeMap::new();
+                for (lbl, bytes) in &nic_raw {
+                    let prev = guard.prev.get(lbl).copied().unwrap_or(0);
+                    let rate = (bytes.saturating_sub(prev) as f64 / dt) as u64;
+                    rates.insert(lbl.clone(), rate);
+                    guard.prev.insert(lbl.clone(), *bytes);
+                }
+                guard.at = now;
+                guard.rates = rates;
+            }
+            nic_raw
+                .into_iter()
+                .map(|(label, downloaded)| blazingdl_engine::NicSpeed {
+                    speed: guard.rates.get(&label).copied().unwrap_or(0),
+                    label,
+                    downloaded,
+                    active_workers: 1,
+                })
+                .collect()
+        };
         blazingdl_engine::Snapshot {
             state,
             url: self.url.clone(),
@@ -730,21 +853,29 @@ impl UnpackJob {
             downloaded,
             resumable: Some(true),
             segments,
-            connections: Vec::new(),
+            connections,
             error,
             failure: None,
-            events: Vec::new(),
+            events,
             server: None,
             at_service: None,
             finishing: None,
             kept: None,
-            nic_speeds: Vec::new(),
+            nic_speeds,
         }
     }
 
     pub fn cancel(&self) {
         self.cancel
             .store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    pub fn set_speed_limit(&self, rate: Option<u64>) {
+        self.progress.set_speed_limit(rate);
+    }
+
+    pub fn speed_limit(&self) -> Option<u64> {
+        self.progress.speed_limit()
     }
 }
 
@@ -987,7 +1118,7 @@ impl Job {
             Job::Remote(r) => r.set_speed_limit(rate),
             Job::Video { job, .. } => job.set_speed_limit(rate),
             Job::Gallery { job, .. } => job.set_speed_limit(rate),
-            Job::Unpack(_) => {}
+            Job::Unpack(u) => u.set_speed_limit(rate),
         }
     }
 
@@ -998,7 +1129,7 @@ impl Job {
             Job::Video { job, .. } => job.speed_limit(),
             Job::Gallery { job, .. } => job.speed_limit(),
             Job::Remote(r) => r.speed_limit(),
-            Job::Unpack(_) => None,
+            Job::Unpack(u) => u.speed_limit(),
         }
     }
 }
@@ -1370,6 +1501,9 @@ impl Item {
             server: None,
             direct: false,
             remote: None,
+            unpack: None,
+            unpack_fallback: None,
+            unpack_unsupported: false,
             rename_on_complete: None,
             preexisting_folder: false,
             moved_away: false,
@@ -1554,6 +1688,16 @@ impl Item {
                     && let Some(v) = self.video.as_mut()
                 {
                     v.parts = job.progress().merge_failed.unwrap_or_default();
+                }
+                // Stream unpack rejected as `Unsupported` (no Range / encrypted ZIP) before writing
+                // any files: mark for transparent fallback to a normal engine download.
+                if status == Status::Error
+                    && let Some(Live {
+                        dl: Job::Unpack(u), ..
+                    }) = &self.live
+                    && u.unsupported_fallback()
+                {
+                    self.unpack_unsupported = true;
                 }
                 if status == Status::Complete {
                     self.downloaded = self.size.unwrap_or(self.downloaded);

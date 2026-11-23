@@ -2776,6 +2776,19 @@ impl App {
 
     // ---- actions ---------------------------------------------------------------------------
 
+    fn should_stream_unpack(&self, url: &url::Url, file_name: &str) -> bool {
+        if !matches!(url.scheme(), "http" | "https") {
+            return false;
+        }
+        let path_low = url.path().to_ascii_lowercase();
+        let is_remote_acpkg = path_low.trim_end_matches('/').ends_with(".acpkg")
+            || path_low.ends_with("/manifest.json");
+        is_remote_acpkg
+            || (self.settings.stream_unpack
+                && (blazingdl_extract::stream_unpack::is_stream_unpack_url(url)
+                    || blazingdl_extract::stream_unpack::is_stream_unpack_name(file_name)))
+    }
+
     fn add(&mut self, fi: &mut FileInfo, start: Start) {
         // Only a folder other than the category's becomes its new one (an unchanged folder
         // stays "the default", following Downloads).
@@ -2783,9 +2796,29 @@ impl App {
             self.settings
                 .keep_category_dir(cat, std::path::Path::new(&dir), &self.downloads);
         }
+        let orig_dest = fi.dest();
+        let orig_name = orig_dest
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or_default()
+            .to_owned();
+        let use_unpack = self.should_stream_unpack(&fi.url, &orig_name);
+        let dest = if use_unpack {
+            let folder = if blazingdl_extract::stream_unpack::is_stream_unpack_name(&orig_name) {
+                blazingdl_extract::stream_unpack::strip_archive_suffix(&orig_name)
+            } else {
+                blazingdl_extract::stream_unpack::folder_name_for_url(&fi.url)
+            };
+            orig_dest
+                .parent()
+                .map(|p| p.join(&folder))
+                .unwrap_or_else(|| PathBuf::from(folder))
+        } else {
+            orig_dest.clone()
+        };
         let id = self.push_item(
             fi.url.clone(),
-            fi.dest(),
+            dest,
             fi.category,
             fi.description.clone(),
             fi.size(),
@@ -2797,11 +2830,17 @@ impl App {
                 crate::i18n::mark("with Add URL")
             },
         );
-        self.name_guessed(id, fi.name_guessed());
+        self.name_guessed(id, !use_unpack && fi.name_guessed());
         self.set_direct(id, fi.direct);
-        self.number_at_start(id);
+        if !use_unpack {
+            self.number_at_start(id);
+        }
         if let Some(item) = self.item(id) {
             item.replace_file = fi.replaces();
+            if use_unpack {
+                item.unpack = Some(model::UnpackSpec::RemoteUrl);
+                item.unpack_fallback = Some(orig_dest);
+            }
         }
         self.selection.set(id);
         if matches!(start, Start::Now) {
@@ -3238,8 +3277,8 @@ impl App {
             let url = url::Url::from_file_path(&pkg_dir)
                 .unwrap_or_else(|()| url::Url::parse("https://local.acpkg/package.acpkg").unwrap());
             let id = self.push_item(
-                url.clone(),
-                dest_dir.clone(),
+                url,
+                dest_dir,
                 Category::Compressed,
                 "AntiCompress .acpkg (1× disk · SHA-256)".into(),
                 None,
@@ -3247,34 +3286,11 @@ impl App {
                 Default::default(),
                 "from .acpkg",
             );
-            let progress = std::sync::Arc::new(blazingdl_extract::UnpackProgress::default());
-            let cancel = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-            let done = std::sync::Arc::new(std::sync::Mutex::new(None));
-            let job = model::UnpackJob {
-                url,
-                dest: dest_dir.clone(),
-                progress: progress.clone(),
-                cancel: cancel.clone(),
-                done: done.clone(),
-            };
             if let Some(item) = self.item(id) {
-                item.live = Some(Live::new(model::Job::Unpack(job), 0));
-                item.status = Status::Downloading;
+                item.unpack = Some(model::UnpackSpec::LocalAcpkg { source: pkg_dir });
             }
             self.selection.set(id);
-            let ui_ctx = ctx.clone();
-            self.rt.spawn_blocking(move || {
-                let res = blazingdl_extract::stream_unpack::unpack_acpkg_local_with_progress(
-                    &pkg_dir,
-                    &dest_dir,
-                    false,
-                    &cancel,
-                    Some(&progress),
-                )
-                .map_err(|e| e.to_string());
-                *done.lock().unwrap() = Some(res);
-                ui_ctx.request_repaint();
-            });
+            self.start(id, true);
             self.quick_notice = Some((
                 format!("Unpacking .acpkg → {folder_name}/ (1× disk · SHA-256)"),
                 Instant::now(),
@@ -3411,13 +3427,18 @@ impl App {
                 && blazingdl_extract::stream_unpack::is_stream_unpack_url(&url))
         {
             let folder_name = blazingdl_extract::stream_unpack::folder_name_for_url(&url);
-            let dest_dir = self
+            let cat_dir = self
                 .settings
-                .category_dir(Category::Compressed, &self.downloads)
-                .join(&folder_name);
+                .category_dir(Category::Compressed, &self.downloads);
+            let dest_dir = cat_dir.join(&folder_name);
+            let fallback_file = url
+                .path_segments()
+                .and_then(|mut s| s.next_back())
+                .filter(|s| !s.is_empty())
+                .map(|s| cat_dir.join(blazingdl_engine::naming::sanitize(s)));
             let id = self.push_item(
-                url.clone(),
-                dest_dir.clone(),
+                url,
+                dest_dir,
                 Category::Compressed,
                 "AntiCompress 1× Disk Stream Unpack".into(),
                 None,
@@ -3425,40 +3446,12 @@ impl App {
                 Default::default(),
                 "from Stream Unpack",
             );
-            let progress = std::sync::Arc::new(blazingdl_extract::UnpackProgress::default());
-            let cancel = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-            let done = std::sync::Arc::new(std::sync::Mutex::new(None));
-            let job = model::UnpackJob {
-                url: url.clone(),
-                dest: dest_dir.clone(),
-                progress: progress.clone(),
-                cancel: cancel.clone(),
-                done: done.clone(),
-            };
             if let Some(item) = self.item(id) {
-                item.live = Some(Live::new(model::Job::Unpack(job), 0));
-                item.status = Status::Downloading;
+                item.unpack = Some(model::UnpackSpec::RemoteUrl);
+                item.unpack_fallback = fallback_file;
             }
             self.selection.set(id);
-            let ui_ctx = ctx.clone();
-            let conns = (self.settings.max_connections as usize).clamp(1, 8);
-            self.rt.spawn(async move {
-                let client = blazingdl_engine::tls::configure(reqwest::Client::builder())
-                    .build()
-                    .unwrap_or_default();
-                let res = blazingdl_extract::stream_unpack::unpack_url_with_progress(
-                    &client,
-                    &url,
-                    &dest_dir,
-                    conns,
-                    cancel,
-                    Some(progress),
-                )
-                .await
-                .map_err(|e| e.to_string());
-                *done.lock().unwrap() = Some(res);
-                ui_ctx.request_repaint();
-            });
+            self.start(id, true);
             self.quick_notice = Some((
                 format!("Streaming unpack (1× disk) → {folder_name}/"),
                 Instant::now(),
@@ -4309,7 +4302,18 @@ impl App {
             // Its name as given, numbered on as it starts if it is taken then (#743): the window
             // doesn't wait for the folder, and a duplicate overwritten just before leaves its name
             // to it once its files are gone (`naming::clear`).
-            let dest = blazingdl_engine::naming::guess(&dir, &name);
+            let orig_dest = blazingdl_engine::naming::guess(&dir, &name);
+            let use_unpack = self.should_stream_unpack(&url, &name);
+            let dest = if use_unpack {
+                let folder = if blazingdl_extract::stream_unpack::is_stream_unpack_name(&name) {
+                    blazingdl_extract::stream_unpack::strip_archive_suffix(&name)
+                } else {
+                    blazingdl_extract::stream_unpack::folder_name_for_url(&url)
+                };
+                dir.join(folder)
+            } else {
+                orig_dest.clone()
+            };
             let later = cmd.later || (skip_dialog && self.settings.only_add_to_queue);
             let source = if cmd.referer.is_some() || cmd.cookies.is_some() {
                 crate::i18n::mark("from the browser")
@@ -4318,8 +4322,15 @@ impl App {
             };
             let size = cmd.size;
             let id = self.push_item(url, dest, category, String::new(), size, None, cmd, source);
-            self.name_guessed(id, guessed);
-            self.number_at_start(id);
+            self.name_guessed(id, !use_unpack && guessed);
+            if use_unpack {
+                if let Some(item) = self.item(id) {
+                    item.unpack = Some(model::UnpackSpec::RemoteUrl);
+                    item.unpack_fallback = Some(orig_dest);
+                }
+            } else {
+                self.number_at_start(id);
+            }
             if later {
                 self.queues[queue].items.push(id);
             } else {
@@ -4654,6 +4665,11 @@ impl App {
         // A torrent through a debrid account (#44).
         if self.item(id).is_some_and(|i| i.remote.is_some()) {
             self.start_remote(id, show);
+            return;
+        }
+        // AntiCompress 1× disk streaming unpack (`.zip`, `.tar.*`, `.acpkg`): start or resume!
+        if self.item(id).is_some_and(|i| i.unpack.is_some()) {
+            self.start_unpack(id, show);
             return;
         }
         // A new download from Download File Info has nothing of its own on the disk yet: nothing
@@ -7347,6 +7363,154 @@ impl App {
         }
     }
 
+    /// Start or resume an AntiCompress 1× disk streaming unpack (`.zip`, `.tar.*`, `.acpkg`),
+    /// using the engine's proxy, DNS, TLS, cookies/auth headers, and Multi-NIC adapters.
+    fn start_unpack(&mut self, id: u64, show: bool) {
+        let limit = self.settings.speed_limit();
+        let rt = self.rt.clone();
+        let Some((
+            url,
+            dest_dir,
+            spec,
+            login,
+            context,
+            direct,
+            own_limit,
+            prev_done,
+            prev_size,
+            name_hint,
+        )) = self.item(id).and_then(|i| {
+            let hint = i
+                .unpack_fallback
+                .as_deref()
+                .and_then(|p| p.file_name())
+                .and_then(|n| n.to_str())
+                .map(str::to_owned);
+            Some((
+                i.url.clone(),
+                i.dest.clone(),
+                i.unpack.clone()?,
+                i.login.clone(),
+                i.context.clone(),
+                i.direct,
+                i.own_limit,
+                i.downloaded,
+                i.size,
+                hint,
+            ))
+        })
+        else {
+            return;
+        };
+
+        if let Some(why) = self.settings.browser_proxy_refused(&context) {
+            if let Some(item) = self.item(id) {
+                item.status = Status::Error;
+                item.error = Some(why);
+                item.last_try = Some(model::now_stamp());
+                item.snap = None;
+            }
+            self.dirty = true;
+            return;
+        }
+
+        let RequestParts { headers, opts } =
+            self.request_parts(&url, login.as_ref(), &context, direct);
+        let conns = (opts.connections() as usize).clamp(1, 8);
+
+        let progress = std::sync::Arc::new(blazingdl_extract::UnpackProgress::default());
+        progress
+            .done_bytes
+            .store(prev_done, std::sync::atomic::Ordering::Relaxed);
+        if let Some(sz) = prev_size {
+            progress
+                .total_bytes
+                .store(sz, std::sync::atomic::Ordering::Relaxed);
+        }
+        progress.set_speed_limit(own_limit.or(limit));
+
+        let cancel = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let done = std::sync::Arc::new(std::sync::Mutex::new(None));
+        let job = model::UnpackJob::new(
+            url.clone(),
+            dest_dir.clone(),
+            progress.clone(),
+            cancel.clone(),
+            done.clone(),
+        );
+
+        if let Some(item) = self.item(id) {
+            item.note(if prev_done > 0 {
+                crate::i18n::t("Resumed")
+            } else {
+                crate::i18n::t("Started")
+            });
+            item.live = Some(Live::new(model::Job::Unpack(job), prev_done));
+            item.status = Status::Downloading;
+            item.error = None;
+            item.unpack_unsupported = false;
+            item.last_try = Some(model::now_stamp());
+        }
+        self.dirty = true;
+        if show && !self.progress.iter().any(|p| p.id == id) {
+            self.progress
+                .push(Progress::new(id, self.settings.show_complete));
+        }
+
+        match spec {
+            model::UnpackSpec::LocalAcpkg { source } => {
+                rt.spawn_blocking(move || {
+                    let res = blazingdl_extract::stream_unpack::unpack_acpkg_local_with_progress(
+                        &source,
+                        &dest_dir,
+                        false,
+                        &cancel,
+                        Some(&progress),
+                    )
+                    .map_err(|e| model::UnpackFailure {
+                        unsupported: e.is_unsupported(),
+                        message: e.to_string(),
+                    });
+                    *done.lock().unwrap() = Some(res);
+                });
+            }
+            model::UnpackSpec::RemoteUrl => {
+                rt.spawn(async move {
+                    let clients =
+                        blazingdl_engine::http_clients(&opts, &url).unwrap_or_else(|_| {
+                            let fallback =
+                                blazingdl_engine::tls::configure(reqwest::Client::builder())
+                                    .build()
+                                    .unwrap_or_default();
+                            vec![(None, fallback)]
+                        });
+                    if clients.len() > 1 {
+                        progress.push_event(format!(
+                            "Multi-NIC active across {} adapters",
+                            clients.len()
+                        ));
+                    }
+                    let http = blazingdl_extract::UnpackHttp::new(clients, headers);
+                    let res = blazingdl_extract::stream_unpack::unpack_url_with_http_and_hint(
+                        &http,
+                        &url,
+                        name_hint.as_deref(),
+                        &dest_dir,
+                        conns,
+                        cancel,
+                        Some(progress),
+                    )
+                    .await
+                    .map_err(|e| model::UnpackFailure {
+                        unsupported: e.is_unsupported(),
+                        message: e.to_string(),
+                    });
+                    *done.lock().unwrap() = Some(res);
+                });
+            }
+        }
+    }
+
     /// A torrent action (#39) on download `id`, in the background; what it did goes in the
     /// download's event log (`torrent_outcomes`). One at a time per torrent.
     /// RSS (#39), every 2 s: what fetches and look-ups sent back (new articles through the
@@ -9298,6 +9462,54 @@ impl App {
         // An archive is tested before its download counts as done (#1661): its finishing (its
         // sound, Download complete, its extraction) waits for the test's outcome.
         self.poll_tests(&mut finished, ctx);
+        // Transparent fallback: if a 1× disk stream unpack was rejected as Unsupported (non-Range
+        // server, encrypted ZIP, etc.) before extracting anything, automatically convert to a
+        // normal engine download to the archive path so the user's download never breaks.
+        let mut unpack_fallbacks = Vec::new();
+        failed.retain(|id| {
+            let Some(item) = self.items.iter_mut().find(|i| i.id == *id) else {
+                return true;
+            };
+            if !item.unpack_unsupported {
+                return true;
+            }
+            item.unpack_unsupported = false;
+            item.unpack = None;
+            item.status = Status::Stopped;
+            item.error = None;
+            item.downloaded = 0;
+            item.snap = None;
+            let old_dir = item.dest.clone();
+            let fallback_dest = item.unpack_fallback.take().unwrap_or_else(|| {
+                let parent = old_dir
+                    .parent()
+                    .map(std::path::Path::to_path_buf)
+                    .unwrap_or_else(|| self.downloads.clone());
+                let raw_name = item
+                    .url
+                    .path_segments()
+                    .and_then(|mut s| s.next_back())
+                    .filter(|s| !s.is_empty())
+                    .map(blazingdl_engine::naming::sanitize)
+                    .filter(|s| !s.is_empty())
+                    .unwrap_or_else(|| format!("{}.zip", item.file_name));
+                parent.join(raw_name)
+            });
+            item.dest = fallback_dest.clone();
+            if let Some(n) = fallback_dest.file_name().and_then(|n| n.to_str()) {
+                item.file_name = n.to_owned();
+            }
+            item.number_at_start = true;
+            item.note(crate::i18n::t(
+                "Stream unpack unsupported by server/archive — falling back to standard download",
+            ));
+            let _ = std::fs::remove_dir(&old_dir);
+            unpack_fallbacks.push(*id);
+            false
+        });
+        for id in unpack_fallbacks {
+            self.start(id, false);
+        }
         // A video or gallery whose helper seems out of date: a newer one first (#1544).
         failed.retain(|id| !self.heal_if_outdated(*id, ctx));
         failed.extend(self.healed(ctx));
@@ -14527,6 +14739,10 @@ impl App {
             .filter_map(|i| match i.live.as_ref().map(|l| &l.dl) {
                 Some(model::Job::File(d)) => {
                     d.cancel();
+                    Some(i.id)
+                }
+                Some(model::Job::Unpack(u)) => {
+                    u.cancel();
                     Some(i.id)
                 }
                 _ => None,

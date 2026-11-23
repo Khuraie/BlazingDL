@@ -10,6 +10,7 @@
 </p>
 
 <p align="center">
+  <a href="#launch-promo">Promo Video</a> ·
   <a href="#desktop-showcase">Showcase</a> ·
   <a href="#key-features">Features</a> ·
   <a href="#engine-pipeline">Architecture</a> ·
@@ -22,6 +23,18 @@
 
 **BlazingDL** is a native Rust download manager built for raw throughput and clean control. It pairs a zero-bloat segmented transfer engine (Multi-NIC bonding, adaptive concurrency, hedged tail racing, Metalink multi-mirror racing, BitTorrent, and native Usenet `.nzb`) with the **Saville Catalog Pulse** desktop shell — an absorbent matte-black workstation driven by a live 5-line pulsar throughput waveform.
 
+## Launch Promo
+
+<p align="center">
+  <a href="https://github.com/Khuraie/BlazingDL/releases/download/v0.5.2/BlazingDL-Promo-1080p60.mp4">
+    <img src="art/promo/promo-poster.png" width="100%" alt="Watch BlazingDL 1080p60 Launch Promo — 1× Disk Stream Unpack & Multi-NIC Bonding" />
+  </a>
+</p>
+
+<p align="center">
+  <em>Click to watch the <strong>1080p60 Launch Promo</strong> (<a href="https://github.com/Khuraie/BlazingDL/releases/download/v0.5.2/BlazingDL-Promo-1080p60.mp4">BlazingDL-Promo-1080p60.mp4</a> · 0:36 · 48 kHz stereo) — 1× disk stream unpack, Saville workstation reveal, surgical progress telemetry, and Multi-NIC aggregation.</em>
+</p>
+
 ## Desktop Showcase
 
 <p align="center">
@@ -29,7 +42,7 @@
 </p>
 
 <p align="center">
-  <em>Real hardware-rendered capture of BlazingDL running the <strong>Saville Catalog Pulse</strong> shell — 86px Pulse Header, 36px inline Command &amp; Capture Strip, Catalog Index Rail, double protocol color blocks, and 2px inline progress hairlines.</em>
+  <em>Real hardware-rendered capture of BlazingDL running the <strong>Saville Catalog Pulse</strong> shell — 86px Pulse Header, 36px inline Command &amp; Capture Strip, Catalog Index Rail, double protocol color blocks, 2px inline progress hairlines, plus a matching Saville Download Progress Window (live sparkline, 2×4 telemetry matrix, server geo/RTT, per-worker speeds, and live Log tab) and Saville-styled browser extension.</em>
 </p>
 
 > Prefer a classic desktop aesthetic? **Classic, Metro, Adwaita, Breeze, Luna, Aero, Aqua, Emerald, High Contrast, and Native** themes remain one click away under **View → Theme**.
@@ -71,12 +84,12 @@
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <h3>📦 AntiCompress 1× Disk Stream Unpack</h3>
-      Built natively in pure Rust (wire-compatible with <a href="https://github.com/Khuraie/AntiCompress">Khuraie/AntiCompress</a>): streams remote <code>.zip</code> (HTTP Range Central Directory + parallel Deflate + resume), <code>.tar.*</code> (gz/xz/zst), and <code>.acpkg</code> v1 packages straight into a ready-to-use folder with <strong>1× disk space</strong>. Multi-part <code>.rar</code> / <code>.7z</code> archives auto-extract to a clean folder and remove leftover parts automatically.
+      <h3>📦 300+ GB 1× Disk Stream Unpack</h3>
+      Pure-Rust streaming unpack (wire-compatible with <a href="https://github.com/Khuraie/AntiCompress">Khuraie/AntiCompress</a>) across <strong>Quick-Add, + ADD URL, and Browser captures</strong> (even extensionless signed CDN links): streams remote <code>.zip</code> / <strong>ZIP64 (&gt;300 GiB)</strong> in &lt;512 KiB/worker RAM (Store, Deflate, Zstd), splits huge ZIP <code>STORE</code> files across parallel Range/Multi-NIC streams with <strong>O(1) instant Pause → Resume</strong> and <code>crc32fast</code> combine verification, streams <code>.tar</code> (Range-resumable) / <code>.tar.gz</code> / <code>.tar.xz</code> / <code>.tar.zst</code> and <code>.acpkg</code> v1 with automatic backoff retries, Cookies/Auth/Proxy inheritance, and <strong>transparent fallback</strong> on non-Range or encrypted archives. Multi-part <code>.rar</code> / <code>.7z</code> auto-extract via 7-Zip or HatchZip.
     </td>
     <td width="50%" valign="top">
-      <h3>🧲 BitTorrent, Video &amp; Browser Capture</h3>
-      Full <code>librqbit</code> BitTorrent engine (magnets, DHT, uTP, selective files, blocklists), signature-verified <code>yt-dlp</code> / <code>gallery-dl</code> / <code>ffmpeg</code> helpers, cross-browser extension, CLI (<code>blazingdl-cli</code>), Remote Web UI (<code>blazingdl-remote</code>), and stdio <strong>MCP server</strong> (<code>blazingdl-mcp</code>).
+      <h3>🧲 BitTorrent, Video &amp; Saville Browser Capture</h3>
+      Full <code>librqbit</code> BitTorrent engine (magnets, DHT, uTP, selective files, blocklists), signature-verified <code>yt-dlp</code> / <code>gallery-dl</code> / <code>ffmpeg</code> helpers, Saville-styled cross-browser extension (floating video overlay + toolbar popup), CLI (<code>blazingdl-cli</code>), Remote Web UI (<code>blazingdl-remote</code>), and stdio <strong>MCP server</strong> (<code>blazingdl-mcp</code>).
     </td>
   </tr>
 </table>
@@ -105,7 +118,7 @@ The inline **Command & Capture Strip** sits flush beneath the Pulse Header and a
 | **`C:\path\to\distro.meta4`** | Parses Metalink mirrors + strongest hash and races all mirrors in parallel |
 | **`C:\path\to\release.nzb`** | Launches multi-connection NNTP/yEnc Usenet download into your downloads folder |
 | **`https://…/game.acpkg`** or local **`.acpkg`** | Streams/unpacks AntiCompress v1 chunks with per-chunk &amp; per-file SHA-256 verification (1× disk) |
-| **UNPACK pill** | One-click toggle for 1× disk streaming unpack (`.zip`, `.tar.*`, `.acpkg`) + multi-part `.rar`/`.7z` auto-folder |
+| **UNPACK pill** | One-click toggle for 300+ GB pausable 1× disk streaming unpack (`.zip`/ZIP64, `.tar.*`, `.acpkg`) across Quick-Add, `+ ADD URL`, and Browser captures (with transparent auto-fallback) + `.rar`/`.7z` auto-folder |
 | **MULTI-NIC pill** | One-click toggle to bond all active IPv4/IPv6 network adapters |
 | **FOCUS pill** | One-click toggle for fullscreen game/presentation auto-throttling |
 
@@ -192,7 +205,7 @@ Array indices `0..23` correspond to local hours (`null` = unlimited, integer = K
 | `blazingdl-ipc` | Local single-instance IPC channel & automation API schema |
 | `blazingdl-tools` | Signature-verified helper tool installer & self-update verification |
 | `blazingdl-remote` | Local HTTPS remote control server & web UI |
-| `blazingdl-extract` | AntiCompress 1× disk streaming unpack (`.zip`, `.tar.*`, `.acpkg`), archive extraction &amp; integrity check |
+| `blazingdl-extract` | 300+ GB 1× disk streaming unpack (ZIP64, parallel STORE, `.tar.*`, `.acpkg`), local `.zst`/archive extraction &amp; integrity check |
 | `blazingdl-crash` | Crash/freeze monitor & minidump symbolicator (`blazingdl-symbolicate`) |
 | `blazingdl-debrid`, `blazingdl-cnl`, `blazingdl-geo`, `blazingdl-labserver` | Debrid hosts, Click'n'Load, offline IP-to-country, fault-injection lab server |
 
@@ -203,7 +216,10 @@ Array indices `0..23` correspond to local hours (`null` = unlimited, integer = K
 Requires **Rust 1.98+** (Edition 2024).
 
 ```powershell
-# Desktop app + CLI + Native Host + MCP server (pure Rust TLS; zero C/BoringSSL build prereqs)
+# Release desktop app (pure Rust TLS; zero C/BoringSSL build prereqs)
+cargo build --release -p blazingdl-app --no-default-features --bin blazingdl
+
+# All core binaries in debug (app + CLI + Native Host + MCP server)
 cargo build -p blazingdl-app -p blazingdl-cli -p blazingdl-nmhost -p blazingdl-mcp --no-default-features
 
 # Full build including `browser-connection` (BoringSSL TLS impersonation; requires CMake, libclang, NASM on Windows)
@@ -213,7 +229,7 @@ cargo build --workspace
 cargo test -p blazingdl-engine --no-default-features --lib
 cargo test -p blazingdl-engine --no-default-features --test blazing_features
 cargo test -p blazingdl-extract
-cargo test -p blazingdl-app --no-default-features --bin blazingdl "palette::tests|list::tests|automation::tests|focusmode::tests|default_apps_tests"
+cargo test -p blazingdl-app --no-default-features --bin blazingdl "palette::tests|list::tests|progress|extractq|freshlink|automation::tests|focusmode::tests|default_apps_tests"
 cargo test -p blazingdl-ipc -p blazingdl-mcp -p blazingdl-nmhost
 cargo test -p blazingdl-tools --no-default-features --lib
 node tools/extension/test.mjs

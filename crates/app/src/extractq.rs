@@ -99,7 +99,8 @@ pub fn archive_name(name: &str) -> bool {
     let lower = name.to_lowercase();
     volume_key(&lower).is_some()
         || [
-            ".zip", ".7z", ".rar", ".tar", ".tgz", ".tar.gz", ".txz", ".tar.xz", ".gz", ".xz",
+            ".zip", ".7z", ".rar", ".tar", ".tgz", ".tar.gz", ".txz", ".tar.xz", ".tzst",
+            ".tar.zst", ".gz", ".xz", ".zst",
         ]
         .iter()
         .any(|e| lower.ends_with(e) && lower.len() > e.len())
@@ -636,8 +637,11 @@ fn run(job: &Job, cancel: &AtomicBool) -> Result<Report, Error> {
         .map(|m| m.len())
         .sum();
     let mut limits = blazingdl_extract::Limits::for_archive(size);
-    // No more than the disk has room for (keeping the engine's margin free).
-    if let Some(v) = blazingdl_engine::disk::volume_of(&dest) {
+    // No more than the disk has room for (keeping the engine's margin free), except for in-place
+    // HatchZip extraction which reclaims space as it goes and checks its own room before starting.
+    if !(job.in_place && hatch_zip().is_some())
+        && let Some(v) = blazingdl_engine::disk::volume_of(&dest)
+    {
         limits.total = limits
             .total
             .min(v.free.saturating_sub(blazingdl_engine::disk::MARGIN));

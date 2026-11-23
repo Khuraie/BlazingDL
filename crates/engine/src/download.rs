@@ -1182,6 +1182,23 @@ pub fn http_client(opts: &Options, url: &Url) -> Result<Client, Error> {
     client(opts, url, &AsGet::default(), &Default::default())
 }
 
+/// Clients for `url`'s server: when Multi-NIC Aggregation (`Route::Aggregate`) is active, returns
+/// one bound client per active adapter `(Some(adapter_label), Client)`; otherwise returns the
+/// single [`http_client`] as `(route_label, Client)`.
+pub fn http_clients(opts: &Options, url: &Url) -> Result<Vec<(Option<String>, Client)>, Error> {
+    let seen = Arc::new(crate::server::ServerSeen::default());
+    let as_get = AsGet::default();
+    let nic = build_nic_clients(opts, url, &as_get, &seen);
+    if !nic.is_empty() {
+        return Ok(nic
+            .into_iter()
+            .map(|(label, c, _)| (Some(label), c))
+            .collect());
+    }
+    let c = client(opts, url, &as_get, &seen)?;
+    Ok(vec![(opts.route.label().map(str::to_owned), c)])
+}
+
 /// A client for one request to `url`'s server, as [`http_client`]'s, that follows no redirect
 /// and adds no `Referer` of its own: its caller follows each hop itself, with a client for that
 /// hop's server (its proxy and adapter checks are that server's), and decides which of its

@@ -26,11 +26,12 @@ pub struct Limits {
 
 impl Limits {
     /// For an archive of `size` bytes: at most 200 times its size or 20 GiB, whichever is more
-    /// (real archives compress well, bombs a thousandfold), 100 000 entries, 64 levels.
+    /// (real archives compress well, bombs a thousandfold), scaling entry count up to 2,000,000
+    /// for 300+ GB game/asset archives while keeping tiny archives strictly bounded.
     pub fn for_archive(size: u64) -> Limits {
         Limits {
             total: size.saturating_mul(200).max(20 << 30),
-            entries: 100_000,
+            entries: (size / (64 * 1024)).clamp(100_000, 2_000_000),
             depth: 64,
         }
     }
@@ -138,7 +139,7 @@ impl<'a> Writer<'a> {
         &self.root
     }
 
-    fn cancelled(&self) -> bool {
+    pub fn cancelled(&self) -> bool {
         self.cancel.is_some_and(|c| c.load(Ordering::Relaxed))
     }
 

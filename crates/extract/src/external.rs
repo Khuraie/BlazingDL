@@ -104,9 +104,35 @@ pub fn extract(
         // asked (the archive isn't encrypted), it never reads it.
         let _ = writeln!(input, "{pw}");
     }
-    let out = child.wait_with_output()?;
-    let err = String::from_utf8_lossy(&out.stderr).to_lowercase();
-    if !out.status.success() {
+    // Drain stderr on a helper thread so verbose 7-Zip output on 300+ GB archives never fills
+    // the OS pipe buffer while we poll `try_wait()` for instant cancellation.
+    let stderr_handle = child.stderr.take().map(|mut pipe| {
+        std::thread::spawn(move || {
+            use std::io::Read;
+            let mut buf = Vec::new();
+            let _ = pipe.read_to_end(&mut buf);
+            buf
+        })
+    });
+    let status = loop {
+        if w.cancelled() {
+            let _ = child.kill();
+            let _ = child.wait();
+            if let Some(h) = stderr_handle {
+                let _ = h.join();
+            }
+            return Err(Error::Cancelled);
+        }
+        if let Some(st) = child.try_wait()? {
+            break st;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(50));
+    };
+    let stderr_bytes = stderr_handle
+        .and_then(|h| h.join().ok())
+        .unwrap_or_default();
+    let err = String::from_utf8_lossy(&stderr_bytes).to_lowercase();
+    if !status.success() {
         return Err(
             if err.contains("wrong password") || err.contains("encrypted") {
                 if password.is_some() {

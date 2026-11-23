@@ -32,8 +32,8 @@ pub mod verify;
 pub use dns::{Dns, DnsChoice, DnsError};
 pub use download::{
     Destination, Download, Error, Event, FileHook, KeptAnswer, NetKind, NicSpeed, Options, Outcome,
-    ProbeInfo, Proxy, Request, Snapshot, fetch, hop_client, http_client, page_links, page_videos,
-    probe, probe_kept, supported,
+    ProbeInfo, Proxy, Request, Snapshot, fetch, hop_client, http_client, http_clients, page_links,
+    page_videos, probe, probe_kept, supported,
 };
 pub use html::{DeclaredVideo, DeclaredVideos};
 pub use metalink::MetalinkFile;
