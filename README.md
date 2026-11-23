@@ -10,39 +10,68 @@
 </p>
 
 <p align="center">
-  <a href="#launch-promo">Promo Video</a> ·
+  <a href="#1-disk-stream-unpack-300-gb">1× Disk Unpack</a> ·
+  <a href="#multi-nic-bonding--telemetry">Multi-NIC</a> ·
   <a href="#desktop-showcase">Showcase</a> ·
   <a href="#key-features">Features</a> ·
   <a href="#engine-pipeline">Architecture</a> ·
   <a href="#quick-add--shortcuts">Quick-Add</a> ·
-  <a href="#power-user-configuration">Configuration</a> ·
   <a href="#building-from-source">Build</a>
 </p>
 
 ---
 
-**BlazingDL** is a native Rust download manager built for raw throughput and clean control. It pairs a zero-bloat segmented transfer engine (Multi-NIC bonding, adaptive concurrency, hedged tail racing, Metalink multi-mirror racing, BitTorrent, and native Usenet `.nzb`) with the **Saville Catalog Pulse** desktop shell — an absorbent matte-black workstation driven by a live 5-line pulsar throughput waveform.
+**BlazingDL** is a native Rust download manager built for raw throughput and clean control. It pairs a zero-bloat segmented transfer engine (300+ GB 1× disk streaming unpack, Multi-NIC bonding, adaptive concurrency, hedged tail racing, Metalink multi-mirror racing, BitTorrent, and native Usenet `.nzb`) with the **Saville Catalog Pulse** desktop shell.
 
-## Launch Promo
+> 🎬 **Watch the full 1080p60 Launch Promo with audio (0:36 · 48 kHz stereo):** [BlazingDL-Promo-1080p60.mp4](https://github.com/Khuraie/BlazingDL/releases/download/v0.5.2/BlazingDL-Promo-1080p60.mp4)
+
+---
+
+## 1× Disk Stream Unpack (300+ GB)
+
+Have **200 GB free** and a **150 GB game `.zip`**? Legacy downloaders save the archive first and crash at 2× disk space. BlazingDL never saves the `.zip` to disk — it reads the Central Directory over HTTP `Range`, streams files straight into a ready-to-play folder in `<512 KiB`/worker RAM, and leaves **50 GB free**.
 
 <p align="center">
   <a href="https://github.com/Khuraie/BlazingDL/releases/download/v0.5.2/BlazingDL-Promo-1080p60.mp4">
-    <img src="art/promo/BlazingDL-Promo.gif" width="100%" alt="BlazingDL Launch Promo — 1× Disk Stream Unpack, Saville Workstation & Multi-NIC Bonding" />
+    <img src="art/promo/clip-unpack-1x.gif" width="100%" alt="BlazingDL 1× Disk Stream Unpack — 200 GB Free + 150 GB Game ZIP = 50 GB Left" />
   </a>
 </p>
 
+- **300+ GB ZIP64 & Parallel `STORE` Slicing:** splits huge `STORE` entries across up to 8 concurrent Range / Multi-NIC streams with **O(1) instant Pause → Resume** and `crc32fast` combine verification.
+- **Works Everywhere:** triggers across Quick-Add, `+ ADD URL`, and Browser captures (including extensionless signed CDN links), inheriting Cookies, Auth, Proxy/PAC, DNS, and automatic mid-stream TCP reconnects.
+- **Zero Breakage:** if a server ignores HTTP `Range` or serves an encrypted ZIP, BlazingDL transparently falls back to a standard download. Also streams `.tar` (Range-resumable), `.tar.gz`/`.tar.xz`/`.tar.zst`, and `.acpkg` v1.
+
+---
+
+## Multi-NIC Bonding & Telemetry
+
+Bond **Ethernet + Wi-Fi 6E + 5G USB tethering** simultaneously via `Route::Aggregate` while monitoring live throughput sparklines, 2×4 telemetry metrics, server Geo/RTT, and per-worker speeds in the **Saville Download Progress Window**.
+
 <p align="center">
-  <em>Auto-playing preview — click for the full <strong>1080p60 MP4 with audio</strong> (<a href="https://github.com/Khuraie/BlazingDL/releases/download/v0.5.2/BlazingDL-Promo-1080p60.mp4">BlazingDL-Promo-1080p60.mp4</a> · 0:36 · 48 kHz stereo).</em>
+  <a href="https://github.com/Khuraie/BlazingDL/releases/download/v0.5.2/BlazingDL-Promo-1080p60.mp4">
+    <img src="art/promo/clip-multinic.gif" width="100%" alt="BlazingDL Saville Progress Window & Multi-NIC Aggregation" />
+  </a>
 </p>
+
+---
 
 ## Desktop Showcase
 
 <p align="center">
-  <img src="art/screenshots/saville-desktop.png" width="100%" alt="BlazingDL Desktop App — Saville Catalog Pulse Interface" />
+  <a href="https://github.com/Khuraie/BlazingDL/releases/download/v0.5.2/BlazingDL-Promo-1080p60.mp4">
+    <img src="art/promo/clip-workstation.gif" width="100%" alt="BlazingDL Saville Catalog Pulse Workstation Reveal" />
+  </a>
 </p>
 
+<details>
+<summary><strong>View full-resolution static desktop capture (Saville Catalog Pulse)</strong></summary>
 <p align="center">
-  <em>Real hardware-rendered capture of BlazingDL running the <strong>Saville Catalog Pulse</strong> shell — 86px Pulse Header, 36px inline Command &amp; Capture Strip, Catalog Index Rail, double protocol color blocks, 2px inline progress hairlines, plus a matching Saville Download Progress Window (live sparkline, 2×4 telemetry matrix, server geo/RTT, per-worker speeds, and live Log tab) and Saville-styled browser extension.</em>
+  <img src="art/screenshots/saville-desktop.png" width="100%" alt="BlazingDL Desktop App — Saville Catalog Pulse Interface" />
+</p>
+</details>
+
+<p align="center">
+  <em><strong>Saville Catalog Pulse</strong> — 86px Pulse Header, 36px inline Command &amp; Capture Strip, Catalog Index Rail, double protocol color blocks, 2px inline progress hairlines, matching Saville Progress Window, and Saville-styled browser extension.</em>
 </p>
 
 > Prefer a classic desktop aesthetic? **Classic, Metro, Adwaita, Breeze, Luna, Aero, Aqua, Emerald, High Contrast, and Native** themes remain one click away under **View → Theme**.
@@ -50,6 +79,12 @@
 ---
 
 ## Key Features
+
+<p align="center">
+  <a href="https://github.com/Khuraie/BlazingDL/releases/download/v0.5.2/BlazingDL-Promo-1080p60.mp4">
+    <img src="art/promo/clip-arsenal.gif" width="100%" alt="BlazingDL Complete Protocol Arsenal" />
+  </a>
+</p>
 
 <table>
   <tr>
