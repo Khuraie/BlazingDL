@@ -19,12 +19,14 @@
 
 ## Highlights
 
-- **Redesigned Desktop Shell (Saville Catalog Pulse)** — Absorbent matte-black workstation (`#0E0F11`) with bone-white typography (`#ECEBE7`), strict `0px` architectural geometry, a **live 5-line pulsar throughput waveform** in the top header, flat color-block protocol tags, razor-thin `2px` inline progress hairlines, and a spacious Catalog Index Rail. Classic, Metro, Adwaita, Breeze, Luna, Aero, Aqua, Emerald, High Contrast, and Native themes remain selectable under **View → Theme**.
-- **Multi-Connection Segmented Engine (`blazingdl-engine`)** — Concurrent byte-range transfers, crash-safe resume states, custom DNS (DoH/DoT), SOCKS/HTTP proxy & PAC support, network adapter binding, checksum verification (MD5/SHA-1/SHA-256/CRC32), and damaged ZIP range repair.
-- **Built-in BitTorrent (`blazingdl-torrent`)** — Magnet links, `.torrent` files, DHT, uTP, selective file downloads, IP blocklists, and per-torrent rate limits powered by `librqbit`.
-- **Video & Media Capture (`blazingdl-tools`)** — Managed, signature-verified `yt-dlp`, `gallery-dl`, `ffmpeg`, and Node.js helpers with quality selection directly from the browser extension.
-- **Browser Integration (`extension/` + `blazingdl-nmhost`)** — Native messaging extension for Chrome, Edge, Brave, Opera, Vivaldi, Firefox, and Safari with download interception, floating video download button, and live popup controls.
-- **Automation & Remote Control** — Headless CLI (`blazingdl-cli`), local HTTPS phone/remote web UI (`blazingdl-remote`), Click'n'Load (`blazingdl-cnl`), Debrid support (`blazingdl-debrid`), and a Model Context Protocol server (`blazingdl-mcp`) for AI assistants.
+- **Redesigned Desktop Shell (Saville Catalog Pulse)** — Absorbent matte-black workstation (`#0E0F11`) with bone-white typography (`#ECEBE7`), strict `0px` architectural geometry, a **live 5-line pulsar throughput waveform** in the top header, an **inline Command & Capture Strip** (`Ctrl+L` Quick-Add for URLs, `magnet:`, `.meta4`/`.metalink`, `.nzb`, and inline checksums; `Ctrl+F` instant transfer filter; one-click **MULTI-NIC** and **FOCUS** controls), flat color-block protocol tags, razor-thin `2px` inline progress hairlines, and a spacious Catalog Index Rail. Classic, Metro, Adwaita, Breeze, Luna, Aero, Aqua, Emerald, High Contrast, and Native themes remain selectable under **View → Theme**.
+- **Plexo-Style Multi-NIC Bandwidth Aggregation (`Route::Aggregate`)** — Bond multiple active network interfaces (e.g. Ethernet + Wi-Fi or 5G tethering) simultaneously across parallel segmented workers with per-NIC byte/throughput reporting in the Pulse Header.
+- **Auto-Adaptive Concurrency & Hedged Tail Racing** — Dynamically scales worker concurrency (`AdaptiveScaler`) against real throughput gain and disk pressure, and preempts sluggish straggler tails (`Planner::preempt_slow_tail`) with anti-livelock cooldowns so slow TCP paths never stall the final 5%.
+- **Multi-Mirror Racing & Metalink (`.meta4` / `.metalink`) Support** — Parses RFC 5854 Metalink v4 and v3 manifests, pulls byte ranges across primary and mirror URLs in parallel, cools down failing mirrors automatically for 60s, and verifies the strongest declared checksum.
+- **Native Usenet (`.nzb`) Engine (`blazingdl-engine::nzb`)** — Pure-Rust NZB XML parser, streaming yEnc decoder with per-segment CRC32 verification, and multi-connection async NNTP/NNTPS (`rustls`) downloader.
+- **Smart Checksum Auto-Match & Post-Download Automation Rules / Webhooks** — Auto-detects SHA-512/SHA-256/SHA-1/MD5 hashes from pasted text or sibling `SHA256SUMS`/`.sha256` manifests; triggers regex/category rules on completion for auto-move, shell command templates (`{path}`, `{file}`, `{dir}`, `{url}`, `{size}`), and async Discord / ntfy / JSON webhooks.
+- **Live 24h Bandwidth Schedule Curve & Game/Focus Auto-Throttle** — Caps aggregate download bandwidth automatically during fullscreen Direct3D games or presentations (`SHQueryUserNotificationState` on Windows) and/or per-hour 24h schedules, always respecting the tightest active limit without overwriting manual Speed Limiter settings.
+- **Built-in BitTorrent, Video Capture & Ecosystem** — `librqbit` torrents/magnets, managed `yt-dlp`/`gallery-dl`/`ffmpeg` helpers, browser extension (`extension/` + `blazingdl-nmhost`), headless CLI (`blazingdl-cli`), local HTTPS remote web UI (`blazingdl-remote`), Click'n'Load (`blazingdl-cnl`), Debrid (`blazingdl-debrid`), and MCP server (`blazingdl-mcp`).
 
 ## Workspace Architecture
 
@@ -49,12 +51,15 @@ Requires **Rust 1.98+** (Edition 2024).
 
 ```powershell
 # Desktop app + CLI + Native Host + MCP server (pure Rust TLS; no BoringSSL native prereqs)
-cargo build -p blazingdl-app --no-default-features -p blazingdl-cli -p blazingdl-nmhost -p blazingdl-mcp
+cargo build -p blazingdl-app -p blazingdl-cli -p blazingdl-nmhost -p blazingdl-mcp --no-default-features
 
 # Full build including `browser-connection` (BoringSSL TLS impersonation; requires CMake, libclang, NASM on Windows)
 cargo build --workspace
 
-# Run core tests
+# Run core & feature tests
+cargo test -p blazingdl-engine --no-default-features --lib
+cargo test -p blazingdl-engine --no-default-features --test blazing_features
+cargo test -p blazingdl-app --no-default-features --bin blazingdl "palette::tests|list::tests|automation::tests|focusmode::tests|default_apps_tests"
 cargo test -p blazingdl-ipc -p blazingdl-mcp -p blazingdl-nmhost
 cargo test -p blazingdl-tools --no-default-features --lib
 node tools/extension/test.mjs

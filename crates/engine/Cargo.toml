@@ -58,6 +58,7 @@ http = "1.5.0"
 rustls.workspace = true
 rustls-platform-verifier.workspace = true
 tokio-rustls.workspace = true
+roxmltree = "0.20.0"
 
 [target.'cfg(windows)'.dependencies]
 # Sparse part files (src/sparse.rs, D-008 amendment) and the free-space probe (src/disk.rs).

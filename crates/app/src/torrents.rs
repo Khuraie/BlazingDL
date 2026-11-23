@@ -509,12 +509,31 @@ pub fn route_bind(route: &blazingdl_engine::Route) -> Result<Option<blazingdl_to
                 .map(|ip| Some(blazingdl_torrent::Bind::Address(ip)))
                 .ok_or_else(|| down(&b.label))
         }
+        #[cfg(windows)]
+        blazingdl_engine::Route::Aggregate(bs) => {
+            if let Some(b) = bs.first() {
+                b.v4.map(std::net::IpAddr::V4)
+                    .or(b.v6.map(std::net::IpAddr::V6))
+                    .map(|ip| Some(blazingdl_torrent::Bind::Address(ip)))
+                    .ok_or_else(|| down(&b.label))
+            } else {
+                Ok(None)
+            }
+        }
         // Linux and macOS: its device.
         #[cfg(not(windows))]
         blazingdl_engine::Route::Bound(b) => Ok(Some(blazingdl_torrent::Bind::Device {
             name: b.name.clone(),
             v4_only: b.v6.is_none(),
         })),
+        #[cfg(not(windows))]
+        blazingdl_engine::Route::Aggregate(bs) => match bs.first() {
+            Some(b) => Ok(Some(blazingdl_torrent::Bind::Device {
+                name: b.name.clone(),
+                v4_only: b.v6.is_none(),
+            })),
+            None => Ok(None),
+        },
     }
 }
 
@@ -1743,6 +1762,7 @@ impl Run {
             at_service: None,
             finishing: None,
             kept: None,
+            nic_speeds: Vec::new(),
         };
         if *self.stopped.lock().unwrap() {
             s.state = State::Cancelled;

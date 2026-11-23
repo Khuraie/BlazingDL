@@ -421,31 +421,38 @@ mod imp {
             Route::Down { label } => Err(NetError::Down {
                 label: label.clone(),
             }),
-            Route::Bound(_) if to_this_computer => Ok(builder),
-            Route::Bound(b) => {
-                #[cfg(windows)]
-                {
-                    Ok(builder.local_address(b.windows_local()))
-                }
-                #[cfg(any(target_os = "linux", target_os = "android", target_os = "macos"))]
-                {
-                    Ok(builder.interface(b.name.clone()))
-                }
-                // No way to hold a socket to the adapter here: no connection rather than one
-                // around it.
-                #[cfg(not(any(
-                    windows,
-                    target_os = "linux",
-                    target_os = "android",
-                    target_os = "macos"
-                )))]
-                {
-                    let _ = builder;
-                    Err(NetError::Down {
-                        label: b.label.clone(),
-                    })
-                }
-            }
+            Route::Bound(_) | Route::Aggregate(_) if to_this_computer => Ok(builder),
+            Route::Bound(b) => bind_wreq(builder, b),
+            Route::Aggregate(bs) => match bs.first() {
+                Some(b) => bind_wreq(builder, b),
+                None => Ok(builder),
+            },
+        }
+    }
+
+    fn bind_wreq(
+        builder: wreq::ClientBuilder,
+        b: &crate::net::Binding,
+    ) -> Result<wreq::ClientBuilder, NetError> {
+        #[cfg(windows)]
+        {
+            Ok(builder.local_address(b.windows_local()))
+        }
+        #[cfg(any(target_os = "linux", target_os = "android", target_os = "macos"))]
+        {
+            Ok(builder.interface(b.name.clone()))
+        }
+        #[cfg(not(any(
+            windows,
+            target_os = "linux",
+            target_os = "android",
+            target_os = "macos"
+        )))]
+        {
+            let _ = builder;
+            Err(NetError::Down {
+                label: b.label.clone(),
+            })
         }
     }
 

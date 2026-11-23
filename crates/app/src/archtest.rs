@@ -1037,6 +1037,7 @@ mod tests {
             server: None,
             finishing: None,
             kept: None,
+            nic_speeds: Vec::new(),
         };
         snap.kept = Some(Arc::new(state));
         item.snap = Some(snap);

@@ -564,6 +564,18 @@ pub struct Settings {
     pub cnl_on: bool,
     /// Click'n'Load: the sites asked about, each allowed (true) or blocked, by host.
     pub cnl_sites: Vec<(String, bool)>,
+    /// Multi-NIC bandwidth aggregation (Plexo-style): adapter names bonded across workers.
+    pub aggregate_adapters: Vec<String>,
+    /// Hedged tail racing: preempt straggler worker tails when fast workers finish early.
+    pub hedge_tail: bool,
+    /// Auto-adaptive stream concurrency scaling.
+    pub adaptive_streams: bool,
+    /// Live 24-hour bandwidth schedule curve & fullscreen game/focus auto-throttle.
+    pub focus_mode: crate::focusmode::FocusConfig,
+    /// Post-download automation rules (regex/category auto-move, custom command, webhooks).
+    pub automation_rules: Vec<crate::automation::AutomationRule>,
+    /// Native Usenet NNTP/NNTPS server configuration for `.nzb` downloads.
+    pub nntp: blazingdl_engine::NntpConfig,
 }
 
 /// Options → File types defaults (IDM 6.42), shared with the browser host (blazingdl_ipc::capture).
@@ -740,6 +752,12 @@ impl Default for Settings {
             grabber_hide_pages: true,
             cnl_on: false,
             cnl_sites: Vec::new(),
+            aggregate_adapters: Vec::new(),
+            hedge_tail: true,
+            adaptive_streams: true,
+            focus_mode: Default::default(),
+            automation_rules: Vec::new(),
+            nntp: Default::default(),
         }
     }
 }

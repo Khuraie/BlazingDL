@@ -592,7 +592,7 @@ fn through_adapter(
         // No adapter: Options -> Proxy / Socks (#363).
         blazingdl_engine::Route::Any => Ok(through_proxy(cmd, url)),
         blazingdl_engine::Route::Down { label } => Err(blazingdl_engine::NetError::Down { label }.into()),
-        blazingdl_engine::Route::Bound(_) => {
+        blazingdl_engine::Route::Bound(_) | blazingdl_engine::Route::Aggregate(_) => {
             let url = relay()?.url();
             for var in [
                 "HTTP_PROXY",

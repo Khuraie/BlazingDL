@@ -226,6 +226,14 @@ pub struct Options {
     /// removing its file: an archive test that finds damage downloads those parts again from it,
     /// under the same validators (#1661, [`crate::repair`]). The state file still goes.
     pub keep_state: bool,
+    /// Additional mirror URLs serving the exact same file (Metalink or user-provided): workers
+    /// pull byte ranges across primary + healthy mirrors simultaneously and fail over on errors.
+    pub mirrors: Vec<Url>,
+    /// Hedged tail racing: when a fast worker finishes early and no segment is large enough to
+    /// split, it preempts a sluggish straggler worker's remaining tail bytes.
+    pub hedge_tail: bool,
+    /// Auto-adaptive stream concurrency scaling (tracks throughput gain and disk pressure).
+    pub adaptive_streams: bool,
 }
 
 /// A callback given the path of a file the engine created (`Options::on_file_created`).
@@ -311,6 +319,9 @@ impl Default for Options {
             request_cap: None,
             slow_disk: None,
             keep_state: false,
+            mirrors: Vec::new(),
+            hedge_tail: true,
+            adaptive_streams: true,
         }
     }
 }
@@ -904,6 +915,17 @@ pub struct Snapshot {
     /// validators, its final place), for [`crate::repair::reopen`]. None when it had none (a
     /// server without ranges).
     pub kept: Option<Arc<ResumeState>>,
+    /// Per-adapter throughput breakdown when Multi-NIC Aggregation (`Route::Aggregate`) is active.
+    pub nic_speeds: Vec<NicSpeed>,
+}
+
+/// Live throughput & byte counters for one aggregated network adapter (Plexo-style Multi-NIC).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct NicSpeed {
+    pub label: String,
+    pub speed: u64,
+    pub downloaded: u64,
+    pub active_workers: usize,
 }
 
 /// One entry of a download's event log; `seq` counts up within one `Download`.
@@ -1409,6 +1431,7 @@ impl Download {
                 at_service: None,
                 finishing: None,
                 kept: None,
+                nic_speeds: Vec::new(),
             }),
             seen: Default::default(),
             planner: Mutex::new(None),
@@ -1713,6 +1736,95 @@ struct Ctx {
     /// The browser-like connection every request goes through instead of `client`, when only it
     /// got past the site's bot check (#668).
     browser: Option<Arc<crate::browserlike::Browser>>,
+    /// Per-adapter bound HTTP clients for Multi-NIC Aggregation (`Route::Aggregate`).
+    nic_clients: Vec<(String, Client, Arc<std::sync::atomic::AtomicU64>)>,
+    /// Cooldown timestamps for mirrors that failed recently (`opts.mirrors` + primary).
+    mirror_bad: Mutex<std::collections::HashMap<String, std::time::Instant>>,
+    /// Cooldown timestamp for hedged tail preemption so workers never ping-pong preempt.
+    last_hedge: Mutex<Option<std::time::Instant>>,
+}
+
+impl Ctx {
+    /// Pick the HTTP client for worker `id`: round-robins across bound NIC clients when
+    /// Multi-NIC Aggregation is active, else uses the default client.
+    fn client_for(&self, id: WorkerId) -> (&Client, Option<usize>) {
+        if self.nic_clients.len() >= 2 {
+            let idx = (id as usize) % self.nic_clients.len();
+            (&self.nic_clients[idx].1, Some(idx))
+        } else {
+            (&self.client, None)
+        }
+    }
+
+    /// Pick a healthy URL for worker `id` across `primary` and `opts.mirrors` (Multi-Mirror Racing).
+    fn url_for(&self, id: WorkerId, primary: &Url) -> Url {
+        if self.opts.mirrors.is_empty() {
+            return primary.clone();
+        }
+        let now = std::time::Instant::now();
+        let bad = self.mirror_bad.lock().unwrap();
+        let mut pool: Vec<&Url> = std::iter::once(primary)
+            .chain(self.opts.mirrors.iter())
+            .filter(|u| {
+                bad.get(u.as_str())
+                    .is_none_or(|t| now.duration_since(*t) > Duration::from_secs(60))
+            })
+            .collect();
+        if pool.is_empty() {
+            pool.push(primary);
+        }
+        pool[(id as usize) % pool.len()].clone()
+    }
+
+    /// Put a failing alternate mirror on a 60s cooldown so subsequent workers route around it.
+    fn mark_mirror_bad(&self, url: &Url) {
+        if !self.opts.mirrors.is_empty() {
+            self.mirror_bad
+                .lock()
+                .unwrap()
+                .insert(url.as_str().to_owned(), std::time::Instant::now());
+        }
+    }
+
+    /// Record bytes delivered on NIC `nic_idx` into the shared snapshot's `nic_speeds`.
+    fn note_nic_bytes(&self, nic_idx: usize, n: u64) {
+        if let Some((label, _, counter)) = self.nic_clients.get(nic_idx) {
+            let total = counter.fetch_add(n, Ordering::Relaxed) + n;
+            let mut v = self.shared.view.lock().unwrap();
+            if let Some(entry) = v.nic_speeds.iter_mut().find(|e| e.label == *label) {
+                entry.downloaded = total;
+            } else {
+                v.nic_speeds.push(NicSpeed {
+                    label: label.clone(),
+                    speed: 0,
+                    downloaded: total,
+                    active_workers: 1,
+                });
+            }
+        }
+    }
+}
+
+/// Build one bound `reqwest::Client` per active adapter when `opts.route` is `Route::Aggregate`.
+fn build_nic_clients(
+    opts: &Options,
+    url: &Url,
+    as_get: &AsGet,
+    seen: &Arc<crate::server::ServerSeen>,
+) -> Vec<(String, Client, Arc<std::sync::atomic::AtomicU64>)> {
+    let bindings = opts.route.bindings();
+    if bindings.len() < 2 {
+        return Vec::new();
+    }
+    let mut out = Vec::with_capacity(bindings.len());
+    for b in bindings {
+        let mut sub = opts.clone();
+        sub.route = crate::net::Route::Bound(b.clone());
+        if let Ok(c) = client(&sub, url, as_get, seen) {
+            out.push((b.label.clone(), c, Arc::new(std::sync::atomic::AtomicU64::new(0))));
+        }
+    }
+    out
 }
 
 /// An answer's body coming in: an HTTP response, or an FTP transfer.
@@ -2509,11 +2621,19 @@ async fn run_fresh(
             wait_for_ranges,
             range_answered: Default::default(),
             digest_learned: Default::default(),
-            as_get,
+            as_get: as_get.clone(),
             web_page_ok: expects_web_page(&dest, content_type.as_deref()),
             never_page,
             ftp: None,
             browser: browser.clone(),
+            nic_clients: build_nic_clients(
+                &opts,
+                &final_url,
+                &as_get,
+                &shared.seen.get().cloned().unwrap_or_default(),
+            ),
+            mirror_bad: Default::default(),
+            last_hedge: Default::default(),
         });
         match segmented(ctx, saved, Some(body)).await {
             Ok(()) => size,
@@ -2752,6 +2872,9 @@ async fn run_fresh_ftp(
             never_page: false,
             ftp: Some(site.clone()),
             browser: None,
+            nic_clients: Vec::new(),
+            mirror_bad: Default::default(),
+            last_hedge: Default::default(),
         });
         match segmented(ctx, saved, Some(first)).await {
             Ok(()) => size,
@@ -2936,6 +3059,7 @@ async fn run_resume(
         saved.content_type.as_deref(),
         &dest.file_name().unwrap_or_default().to_string_lossy(),
     );
+    let nic_clients = build_nic_clients(&opts, &url, &as_get, &seen);
     let ctx = Arc::new(Ctx {
         client,
         validators: Mutex::new({
@@ -2974,6 +3098,9 @@ async fn run_resume(
         never_page,
         ftp,
         browser,
+        nic_clients,
+        mirror_bad: Default::default(),
+        last_hedge: Default::default(),
     });
     let stamp = ctx
         .opts
@@ -4249,7 +4376,45 @@ async fn worker(ctx: Arc<Ctx>, id: WorkerId, mut first: Option<Body>) -> Result<
         if ctx.cancel.is_cancelled() {
             return Err(Error::Cancelled);
         }
-        let Some(a) = ctx.shared.with_planner(|p| p.assign(id, after.take())) else {
+        let assign = ctx.shared.with_planner(|p| p.assign(id, after.take())).or_else(|| {
+            if !ctx.opts.hedge_tail {
+                return None;
+            }
+            let best = ctx.shared.best_speed.load(Ordering::Relaxed);
+            if best < 32 * 1024 {
+                return None;
+            }
+            let now = std::time::Instant::now();
+            {
+                let last = ctx.last_hedge.lock().unwrap();
+                if last.is_some_and(|t| now.duration_since(t) < Duration::from_secs(2)) {
+                    return None;
+                }
+            }
+            let slow: Vec<WorkerId> = {
+                let v = ctx.shared.view.lock().unwrap();
+                v.connections
+                    .iter()
+                    .filter(|c| {
+                        c.id != id
+                            && ((matches!(c.status, ConnStatus::Receiving)
+                                && c.speed > 0
+                                && c.speed * 4 < best)
+                                || matches!(c.status, ConnStatus::Retrying(_)))
+                    })
+                    .map(|c| c.id)
+                    .collect()
+            };
+            if slow.is_empty() {
+                return None;
+            }
+            let hedged = ctx.shared.with_planner(|p| p.preempt_slow_tail(id, &slow));
+            if hedged.is_some() {
+                *ctx.last_hedge.lock().unwrap() = Some(now);
+            }
+            hedged
+        });
+        let Some(a) = assign else {
             ctx.shared.conn(id, ConnView::finish);
             return Ok(());
         };
@@ -4447,10 +4612,16 @@ async fn receive_all(
                 if let Some(cap) = ctx.opts.cap().filter(|c| overlap < *c && ctx.ftp.is_none()) {
                     to = to.min(from - overlap + cap);
                 }
-                request(ctx, target, from - overlap, to).await?
+                request(ctx, id, target, from - overlap, to).await?
             }
         };
-        match receive(ctx, id, b, from, to, overlap, whole).await? {
+        let nic_idx = ctx.client_for(id).1;
+        let res = receive(ctx, id, b, from, to, overlap, whole).await?;
+        if let Some(ni) = nic_idx {
+            let chunk_bytes = to.saturating_sub(from);
+            ctx.note_nic_bytes(ni, chunk_bytes);
+        }
+        match res {
             Received::Complete(end) => return Ok(Some(end)),
             Received::Lost => return Ok(None),
             // The capped request came whole, its segment goes on: the next piece of it.
@@ -4476,7 +4647,7 @@ enum Received {
 
 /// `GET` bytes `[from, to)`; checks the server returned exactly that range of the same file.
 /// FTP: `REST from` and `RETR`.
-async fn request(ctx: &Ctx, target: &Target, from: u64, to: u64) -> Result<Body, Error> {
+async fn request(ctx: &Ctx, id: WorkerId, target: &Target, from: u64, to: u64) -> Result<Body, Error> {
     if let Some(site) = &ctx.ftp {
         return match cancellable(&ctx.cancel, site.open_at(from, Some(ctx.size))).await {
             Ok(t) => {
@@ -4496,39 +4667,67 @@ async fn request(ctx: &Ctx, target: &Target, from: u64, to: u64) -> Result<Body,
             Err(e) => Err(e),
         };
     }
-    let if_range = ctx
-        .validators
-        .lock()
-        .unwrap()
-        .if_range(target.url.host_str())
-        .and_then(|v| HeaderValue::from_str(v).ok());
+    let fetch_url = ctx.url_for(id, &target.url);
+    let same_host = fetch_url.host_str() == target.url.host_str();
+    let if_range = if same_host {
+        ctx.validators
+            .lock()
+            .unwrap()
+            .if_range(fetch_url.host_str())
+            .and_then(|v| HeaderValue::from_str(v).ok())
+    } else {
+        None
+    };
     let range = format!("bytes={from}-{}", to - 1);
     let (head, body) = match &ctx.browser {
         // The browser-like connection's own (#668): its redirects followed as `get` does.
         Some(b) => {
-            let mut headers = target.headers.clone();
+            let mut headers = if same_host {
+                target.headers.clone()
+            } else {
+                HeaderMap::new()
+            };
             headers.insert(header::RANGE, HeaderValue::from_str(&range).expect("ascii"));
             if let Some(v) = &if_range {
                 headers.insert(header::IF_RANGE, v.clone());
             }
             let (head, body, _) = b
-                .get(target.url.clone(), headers, true, &ctx.cancel)
+                .get(fetch_url.clone(), headers, true, &ctx.cancel)
                 .await?;
             (head, body)
         }
         None => {
+            let (http_client, _) = ctx.client_for(id);
+            let hdrs = if same_host {
+                &target.headers
+            } else {
+                static EMPTY: std::sync::LazyLock<HeaderMap> =
+                    std::sync::LazyLock::new(HeaderMap::new);
+                &EMPTY
+            };
             let mut req = build(
-                &ctx.client,
-                target.url.clone(),
-                target.post.as_ref(),
-                &target.headers,
+                http_client,
+                fetch_url.clone(),
+                if same_host { target.post.as_ref() } else { None },
+                hdrs,
                 ctx.opts.site_agent(),
             )
             .header(header::RANGE, range);
             if let Some(v) = &if_range {
                 req = req.header(header::IF_RANGE, v);
             }
-            let resp = cancellable(&ctx.cancel, async { Ok(req.send().await?) }).await?;
+            let resp = match cancellable(&ctx.cancel, async { Ok(req.send().await?) }).await {
+                Ok(r) => r,
+                Err(e) => {
+                    if !ctx.opts.mirrors.is_empty() {
+                        ctx.mark_mirror_bad(&fetch_url);
+                    }
+                    return Err(e);
+                }
+            };
+            if !resp.status().is_success() && !ctx.opts.mirrors.is_empty() {
+                ctx.mark_mirror_bad(&fetch_url);
+            }
             (Head::of(&resp), Body::Http(resp))
         }
     };

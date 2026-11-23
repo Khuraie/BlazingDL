@@ -648,6 +648,7 @@ impl RemoteTorrent {
             at_service,
             finishing: None,
             kept: None,
+            nic_speeds: Vec::new(),
         }
     }
 }

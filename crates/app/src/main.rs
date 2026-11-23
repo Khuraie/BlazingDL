@@ -2,6 +2,7 @@
 
 mod app;
 mod archtest;
+mod automation;
 mod batch;
 mod categories;
 mod checksum;
@@ -27,6 +28,7 @@ mod fileclip;
 mod fileicons;
 mod find;
 mod finish;
+mod focusmode;
 mod freshlink;
 mod gallerydlg;
 mod grabber;

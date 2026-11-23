@@ -433,3 +433,32 @@ proptest! {
         world.finish();
     }
 }
+
+#[test]
+fn preempt_slow_tail_reassigns_tail_from_slow_worker() {
+    let mut p = Planner::new(1_000_000, 64_000);
+    // Worker 0 takes the entire file, Worker 1 splits the upper half.
+    let a0 = p.assign(0, None).unwrap();
+    assert_eq!((a0.from, a0.to), (0, 1_000_000));
+    let a1 = p.assign(1, None).unwrap();
+    let split = a1.from;
+    assert!(split > 0 && split < 1_000_000 && split % 4096 == 0);
+    // Advance Worker 1 to complete its tail, leaving Worker 0 stalled near the start.
+    let w1_len = 1_000_000 - split;
+    assert!(matches!(p.claim(1, split, w1_len), Claim::Granted(n) if n == w1_len));
+    assert_eq!(p.commit(1, 1_000_000), Some(1_000_000));
+    // Worker 0 made tiny progress so its remaining range is still huge (> 0).
+    assert!(matches!(p.claim(0, 0, 10_000), Claim::Granted(10_000)));
+    assert_eq!(p.commit(0, 10_000), None);
+    // Worker 1 is now free and hedges Worker 0's stalled tail.
+    let hedged = p.preempt_slow_tail(1, &[0]).expect("hedged tail assigned");
+    assert_eq!(hedged.from, 10_000);
+    assert_eq!(hedged.to, split);
+    // Worker 0's next claim fails cleanly because Worker 1 took ownership.
+    assert_eq!(p.claim(0, 10_000, 4096), Claim::Lost);
+    let rem = split - 10_000;
+    assert!(matches!(p.claim(1, 10_000, rem), Claim::Granted(n) if n == rem));
+    assert_eq!(p.commit(1, split), Some(split));
+    assert!(p.is_complete());
+    check_invariants(&p);
+}

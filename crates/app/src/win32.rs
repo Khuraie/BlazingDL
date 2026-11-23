@@ -4740,6 +4740,19 @@ pub fn idle_seconds() -> u64 {
     u64::from(now.wrapping_sub(info.dwTime) / 1000)
 }
 
+/// True when a fullscreen game, D3D app, or presentation is active (Game / Focus Auto-Throttle).
+pub fn fullscreen_app_active() -> bool {
+    use windows::Win32::UI::Shell::{
+        QUNS_BUSY, QUNS_PRESENTATION_MODE, QUNS_RUNNING_D3D_FULL_SCREEN,
+        SHQueryUserNotificationState,
+    };
+    // SAFETY: SHQueryUserNotificationState has no preconditions and returns the shell state.
+    matches!(
+        unsafe { SHQueryUserNotificationState() },
+        Ok(QUNS_BUSY | QUNS_RUNNING_D3D_FULL_SCREEN | QUNS_PRESENTATION_MODE)
+    )
+}
+
 // ---- taskbar progress (ITaskbarList3) -----------------------------------------------------
 //
 // windows-sys has no COM interface tables, so the three calls used are declared here in

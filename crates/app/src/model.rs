@@ -459,6 +459,9 @@ pub struct Item {
     /// The hash the finished file must have (Verify checksum…; beyond IDM, D-015).
     #[serde(default)]
     pub checksum: Option<blazingdl_engine::verify::Hash>,
+    /// Additional mirror URLs serving the same file (Metalink or user-provided).
+    #[serde(default)]
+    pub mirrors: Vec<String>,
     /// When the download was added ("Added" column), as `Last Try Date` is written. Downloads
     /// added before the column existed have none.
     #[serde(default)]
@@ -836,6 +839,7 @@ fn tool_snapshot(p: blazingdl_tools::video::Progress, url: &Url) -> blazingdl_en
         at_service: None,
         finishing: p.merging.flatten(),
         kept: None,
+        nic_speeds: Vec::new(),
     }
 }
 
@@ -1265,6 +1269,7 @@ impl Item {
             error: None,
             resumable: None,
             checksum: None,
+            mirrors: Vec::new(),
             added: Some(now_stamp()),
             own_limit: None,
             video: None,

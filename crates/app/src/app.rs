@@ -1310,6 +1310,14 @@ pub struct App {
     show_categories: bool,
     /// Live throughput history for the Saville Pulse Header waveform.
     pulse: crate::saville::PulseHistory,
+    /// Inline Saville Quick-Add input buffer (URL / magnet / .meta4 / .nzb / URL+checksum).
+    quick_add: String,
+    /// Inline Saville live instant transfer filter.
+    quick_filter: String,
+    /// Brief inline feedback message displayed in the Saville footer bar.
+    quick_notice: Option<(String, Instant)>,
+    /// Live 24h bandwidth schedule & fullscreen game/focus auto-throttle controller.
+    focus_ctrl: crate::focusmode::FocusController,
     /// The node the list was last drawn for (a new one starts at the top).
     list_view: View,
     /// The download Move/Rename's dialog is for (winui::start_pick answers later).
@@ -2170,6 +2178,10 @@ impl App {
             view,
             show_categories,
             pulse: Default::default(),
+            quick_add: String::new(),
+            quick_filter: String::new(),
+            quick_notice: None,
+            focus_ctrl: Default::default(),
             all_open,
             unfinished_open,
             finished_open,
@@ -2479,14 +2491,25 @@ impl App {
         }
         let right = self.strip_right(p, w);
         if crate::saville::active() {
+            if let Some((_, at)) = &self.quick_notice
+                && at.elapsed() > Duration::from_secs(6)
+            {
+                // Expire inline notice passively on display without requiring &mut self.
+            }
+            let notice_left = self
+                .quick_notice
+                .as_ref()
+                .filter(|(_, at)| at.elapsed() <= Duration::from_secs(6))
+                .map(|(msg, _)| format!("{left}   ·   {msg}"));
+            let footer_left = notice_left.as_deref().unwrap_or(&left);
             crate::saville::footer_bar(
                 ui,
                 o,
                 w,
                 h,
-                &left,
+                footer_left,
                 right.as_deref(),
-                self.limiter_hint().is_some(),
+                self.limiter_hint().is_some() || self.focus_ctrl.active_reason().is_some(),
             );
             return;
         }
@@ -2711,7 +2734,14 @@ impl App {
     /// [`Self::view_ids`]'s downloads themselves (each sort key worked out once, not at
     /// every comparison).
     fn view_items(&self) -> Vec<&Item> {
-        let shown = self.items.iter().filter(|i| self.in_view(self.view, i));
+        let q = self.quick_filter.trim().to_ascii_lowercase();
+        let shown = self.items.iter().filter(|i| {
+            self.in_view(self.view, i)
+                && (q.is_empty()
+                    || i.file_name.to_ascii_lowercase().contains(&q)
+                    || i.url.as_str().to_ascii_lowercase().contains(&q)
+                    || i.description.to_ascii_lowercase().contains(&q))
+        });
         let Some((col, asc)) = self.list.sort else {
             return shown.collect();
         };
@@ -3119,7 +3149,11 @@ impl App {
     }
 
     fn network_adapter_tick(&mut self, ctx: &egui::Context) {
-        let route = self.netwatch.route(&self.settings.net_adapter, ctx);
+        let route = self.netwatch.route_multi(
+            &self.settings.net_adapter,
+            &self.settings.aggregate_adapters,
+            ctx,
+        );
         crate::settings::share_route(route.clone());
         if route != self.route {
             let before = std::mem::replace(&mut self.route, route.clone());
@@ -3140,6 +3174,203 @@ impl App {
         for id in ready {
             self.start(id, false);
         }
+    }
+
+    /// Toggle Plexo-style Multi-NIC Bandwidth Aggregation across all active up adapters.
+    fn toggle_multi_nic(&mut self, ctx: &egui::Context) {
+        if self.settings.aggregate_adapters.len() >= 2 {
+            self.settings.aggregate_adapters.clear();
+            self.dirty = true;
+            self.network_adapter_tick(ctx);
+            self.quick_notice = Some(("Multi-NIC bonding OFF".into(), Instant::now()));
+            return;
+        }
+        let up: Vec<String> = crate::netwatch::adapters()
+            .into_iter()
+            .filter(|a| !a.v4.is_empty() || !a.v6.is_empty())
+            .map(|a| a.name)
+            .collect();
+        if up.len() >= 2 {
+            let label = up.join(" + ");
+            self.settings.aggregate_adapters = up;
+            self.dirty = true;
+            self.network_adapter_tick(ctx);
+            self.quick_notice = Some((format!("Multi-NIC bonded: {label}"), Instant::now()));
+        } else {
+            let count = up.len();
+            self.quick_notice = Some((
+                format!(
+                    "{count} active NIC detected — connect a second adapter (e.g. Wi-Fi + Ethernet) to bond"
+                ),
+                Instant::now(),
+            ));
+        }
+    }
+
+    /// Handle inline Saville Quick-Add input: HTTP/HTTPS/FTP URLs (with optional inline checksum),
+    /// magnet: links, local `.meta4`/`.metalink` files, and local `.nzb` Usenet files.
+    fn handle_quick_add(&mut self, raw: String, ctx: &egui::Context) {
+        let trimmed = raw.trim().trim_matches('"');
+        if trimmed.is_empty() {
+            return;
+        }
+        // 1. Local .meta4 / .metalink file path
+        let as_path = PathBuf::from(trimmed);
+        if blazingdl_engine::metalink::is_metalink_path(&as_path) && as_path.is_file() {
+            match std::fs::read_to_string(&as_path)
+                .map_err(|e| e.to_string())
+                .and_then(|xml| {
+                    blazingdl_engine::metalink::parse(&xml).map_err(|e| e.to_string())
+                }) {
+                Ok(files) => {
+                    let count = files.len();
+                    for mf in files {
+                        let Some(primary) = mf.primary_url().cloned() else {
+                            continue;
+                        };
+                        let cat = Category::of(&mf.name);
+                        let dir = self.settings.category_dir(cat, &self.downloads);
+                        let dest = dir.join(&mf.name);
+                        let id = self.push_item(
+                            primary,
+                            dest,
+                            cat,
+                            format!("Metalink ({} mirrors)", mf.mirrors.len()),
+                            mf.size,
+                            None,
+                            Default::default(),
+                            "from Metalink",
+                        );
+                        if let Some(item) = self.item(id) {
+                            item.mirrors = mf
+                                .extra_mirrors()
+                                .into_iter()
+                                .map(|u| u.to_string())
+                                .collect();
+                            item.checksum = mf.best_hash();
+                        }
+                        self.start(id, true);
+                    }
+                    self.quick_notice = Some((
+                        format!("Queued {count} Metalink transfer(s) with multi-mirror racing"),
+                        Instant::now(),
+                    ));
+                }
+                Err(e) => {
+                    self.quick_notice = Some((format!("Metalink error: {e}"), Instant::now()));
+                }
+            }
+            return;
+        }
+        // 2. Local .nzb Usenet file path
+        if blazingdl_engine::nzb::is_nzb_path(&as_path) && as_path.is_file() {
+            if self.settings.nntp.host.trim().is_empty() {
+                self.quick_notice = Some((
+                    "Set settings.nntp.host in downloads.json to download .nzb files".into(),
+                    Instant::now(),
+                ));
+                return;
+            }
+            match std::fs::read_to_string(&as_path)
+                .map_err(|e| e.to_string())
+                .and_then(|xml| blazingdl_engine::nzb::parse_nzb(&xml).map_err(|e| e.to_string()))
+            {
+                Ok(nzb) => {
+                    let n_files = nzb.files.len();
+                    let cfg = self.settings.nntp.clone();
+                    let dest_dir = self
+                        .settings
+                        .category_dir(Category::General, &self.downloads);
+                    self.rt.spawn(async move {
+                        if let Err(e) =
+                            blazingdl_engine::nzb::download_nzb_simple(&nzb, &cfg, &dest_dir).await
+                        {
+                            tracing::warn!("NZB download failed: {e}");
+                        }
+                    });
+                    self.quick_notice = Some((
+                        format!("Started Usenet NZB download ({n_files} file(s))"),
+                        Instant::now(),
+                    ));
+                }
+                Err(e) => {
+                    self.quick_notice = Some((format!("NZB parse error: {e}"), Instant::now()));
+                }
+            }
+            return;
+        }
+        // 3. Magnet link or local .torrent file
+        if trimmed.to_ascii_lowercase().starts_with("magnet:")
+            || (as_path
+                .extension()
+                .and_then(|e| e.to_str())
+                .is_some_and(|e| e.eq_ignore_ascii_case("torrent"))
+                && as_path.is_file())
+        {
+            self.open_torrent_dialog_with(Some(trimmed.to_owned()), None, ctx);
+            return;
+        }
+        // 4. HTTP / HTTPS / FTP URL (optionally accompanied by a pasted checksum hash)
+        let first_url = trimmed
+            .split_whitespace()
+            .find_map(|tok| {
+                let t = tok.trim_matches(|c: char| matches!(c, '<' | '>' | '"' | '\''));
+                url::Url::parse(t)
+                    .ok()
+                    .filter(|u| matches!(u.scheme(), "http" | "https" | "ftp" | "ftps"))
+            });
+        let Some(url) = first_url else {
+            self.quick_notice = Some((
+                "Enter an http(s)/ftp URL, magnet:, or path to .meta4 / .nzb".into(),
+                Instant::now(),
+            ));
+            return;
+        };
+        if blazingdl_tools::pages::is_video_page(&url) {
+            self.video_dlg = Some(self.video_dialog(Some((url.as_str(), Default::default()))));
+            return;
+        }
+        if blazingdl_tools::pages::is_gallery_page(&url) {
+            let dir = self
+                .settings
+                .category_dir(Category::General, &self.downloads);
+            self.gallery_dlg = Some(crate::gallerydlg::GalleryDialog::new(dir, url.as_str()));
+            return;
+        }
+        let fname = url
+            .path_segments()
+            .and_then(|mut s| s.next_back())
+            .filter(|s| !s.is_empty())
+            .unwrap_or("download")
+            .to_owned();
+        let matched_hash = crate::automation::extract_checksum(trimmed, Some(&fname));
+        let cat = Category::of(&fname);
+        let dir = self.settings.category_dir(cat, &self.downloads);
+        let dest = dir.join(&fname);
+        let id = self.push_item(
+            url,
+            dest,
+            cat,
+            String::new(),
+            None,
+            None,
+            Default::default(),
+            "from Quick-Add",
+        );
+        if let Some(item) = self.item(id) {
+            item.name_from_url = true;
+            if let Some(h) = &matched_hash {
+                item.checksum = Some(h.clone());
+            }
+        }
+        self.selection.set(id);
+        self.start(id, true);
+        let notice = if let Some(h) = matched_hash {
+            format!("Started {fname} (auto-matched {} checksum)", h.algo.name())
+        } else {
+            format!("Started {fname}")
+        };
+        self.quick_notice = Some((notice, Instant::now()));
     }
 
     fn route_changed(&mut self, before: &blazingdl_engine::Route) {
@@ -4064,6 +4295,8 @@ impl App {
                 .page_url
                 .as_deref()
                 .and_then(|p| url::Url::parse(p).ok()),
+            hedge_tail: self.settings.hedge_tail,
+            adaptive_streams: self.settings.adaptive_streams,
             ..Options::default()
         };
         RequestParts { headers, opts }
@@ -4333,6 +4566,16 @@ impl App {
         opts.speed_limit = own_limit.or(self.settings.speed_limit());
         opts.checksum = checksum;
         let Some(item) = self.item(id) else { return };
+        if opts.checksum.is_none() {
+            opts.checksum = crate::automation::find_sibling_checksum(&item.dest);
+        }
+        if !item.mirrors.is_empty() {
+            opts.mirrors = item
+                .mirrors
+                .iter()
+                .filter_map(|m| url::Url::parse(m).ok())
+                .collect();
+        }
         // The file at its place, chosen to be replaced (#1088): replaced as it completes, on a
         // first start and on a resume alike. A place moved since doesn't replace anything.
         opts.replace_existing = item.replaces();
@@ -4785,8 +5028,12 @@ impl App {
         let active = crate::win32::idle_seconds() < 60;
         #[cfg(not(windows))]
         let active = true;
-        let rate = (s.global_limit_on && (!s.global_only_active || active))
+        let manual_rate = (s.global_limit_on && (!s.global_only_active || active))
             .then(|| s.global_limit_kb.max(1) * 1024);
+        let now_hour = chrono::Timelike::hour(&crate::clock::now()) as u8;
+        let (rate, _) = self
+            .focus_ctrl
+            .tick(&self.settings.focus_mode, now_hour, manual_rate);
         self.global_cap = rate;
         let torrents = self.torrent_speed();
         let files = self.file_speed();
@@ -8947,6 +9194,28 @@ impl App {
             if !renaming {
                 // Its archive, when it is to be extracted and its last volume is in (#37).
                 self.extracts.finished(*id, &self.items, &self.settings);
+                // Smart sibling checksum auto-match + Post-Download Automation Rules / Webhooks.
+                if let Some(it) = self.items.iter_mut().find(|i| i.id == *id) {
+                    if it.checksum.is_none()
+                        && let Some(h) = crate::automation::find_sibling_checksum(&it.dest)
+                    {
+                        it.checksum = Some(h);
+                    }
+                    if !self.settings.automation_rules.is_empty() {
+                        let info = crate::automation::CompletedInfo {
+                            file_name: it.file_name.clone(),
+                            path: it.dest.clone(),
+                            url: it.url.to_string(),
+                            size: it.size.unwrap_or(it.downloaded),
+                            category: it.category.key().into_owned(),
+                        };
+                        crate::automation::run_rules_async(
+                            &self.rt,
+                            &self.settings.automation_rules,
+                            info,
+                        );
+                    }
+                }
             }
             // Finished files leave download queues (synchronization queues keep them).
             for q in self.queues.iter_mut().filter(|q| !q.sync) {
@@ -10890,7 +11159,7 @@ impl App {
         ];
         let saville = crate::saville::active();
         let pane_top = if saville {
-            crate::saville::HEADER_H
+            crate::saville::HEADER_H + crate::saville::CMD_BAR_H
         } else {
             chrome::pane_top()
         };
@@ -10905,14 +11174,36 @@ impl App {
             let mut active_count = 0usize;
             let mut active_conns = 0usize;
             let mut total_rate = 0.0_f64;
+            let mut nic_totals: std::collections::BTreeMap<String, u64> =
+                std::collections::BTreeMap::new();
             for it in &self.items {
                 if let Some(live) = it.live.as_ref() {
                     active_count += 1;
                     total_rate += it.rate();
-                    active_conns += live.dl.snapshot().connections.len().max(1);
+                    let snap = live.dl.snapshot();
+                    active_conns += snap.connections.len().max(1);
+                    for ns in &snap.nic_speeds {
+                        *nic_totals.entry(ns.label.clone()).or_default() += ns.downloaded;
+                    }
                 }
             }
             self.pulse.record(total_rate, active_count, active_conns);
+            let nic_summary = if nic_totals.len() >= 2 {
+                nic_totals
+                    .iter()
+                    .map(|(lbl, bytes)| {
+                        format!(
+                            "{} {}",
+                            lbl.to_uppercase(),
+                            blazingdl_engine::disk::human(*bytes).to_uppercase()
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join(" · ")
+            } else {
+                String::new()
+            };
+            self.pulse.record_nics(nic_summary);
         }
         let tb: Vec<(Icon, &str, bool)> = buttons.iter().map(|(i, l, e, _)| (*i, *l, *e)).collect();
         let tb_keys = (self.toolbar_keys && free).then_some(self.toolbar_at);
@@ -10935,6 +11226,52 @@ impl App {
                 self.toolbar_at = k;
             }
             None => {}
+        }
+        if saville {
+            let focus_add = free
+                && ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::L));
+            let focus_flt = free
+                && ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::F));
+            let bonded_n = match &self.route {
+                blazingdl_engine::Route::Aggregate(bs) => bs.len(),
+                _ => 0,
+            };
+            let cmd_ev = crate::saville::command_bar(
+                ui,
+                o,
+                w,
+                &mut self.quick_add,
+                &mut self.quick_filter,
+                bonded_n,
+                self.settings.focus_mode.enabled,
+                self.focus_ctrl.active_reason(),
+                focus_add,
+                focus_flt,
+            );
+            if let Some(ev) = cmd_ev {
+                match ev {
+                    crate::saville::CommandBarEvent::SubmitAdd(raw) => {
+                        self.handle_quick_add(raw, &ctx);
+                    }
+                    crate::saville::CommandBarEvent::ToggleMultiNic => {
+                        self.toggle_multi_nic(&ctx);
+                    }
+                    crate::saville::CommandBarEvent::ToggleFocus => {
+                        self.settings.focus_mode.enabled = !self.settings.focus_mode.enabled;
+                        self.dirty = true;
+                        self.apply_global_limit();
+                        let msg = if self.settings.focus_mode.enabled {
+                            format!(
+                                "Focus Auto-Throttle ON ({} KB/s during fullscreen)",
+                                self.settings.focus_mode.throttle_kbps
+                            )
+                        } else {
+                            "Focus Auto-Throttle OFF".to_owned()
+                        };
+                        self.quick_notice = Some((msg, Instant::now()));
+                    }
+                }
+            }
         }
 
         // Categories pane.

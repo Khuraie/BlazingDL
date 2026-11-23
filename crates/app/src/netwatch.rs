@@ -20,8 +20,10 @@ pub struct NetWatch {
 
 #[derive(Default)]
 struct Shared {
-    /// The adapter chosen (Settings::net_adapter); "" none.
+    /// The single adapter chosen (Settings::net_adapter); "" none.
     wanted: String,
+    /// Bonded adapters for Multi-NIC Aggregation (Settings::aggregate_adapters).
+    multi: Vec<String>,
     route: Route,
     /// Woken when the route changes.
     ctx: Option<egui::Context>,
@@ -32,10 +34,17 @@ impl NetWatch {
     /// The route for `wanted` now, the watch started if needed (and told what is wanted). The
     /// first answer is worked out at once, so nothing starts on a stale route.
     pub fn route(&self, wanted: &str, ctx: &egui::Context) -> Route {
+        self.route_multi(wanted, &[], ctx)
+    }
+
+    /// Resolve either multi-NIC aggregation (`multi`, when 2+ adapters are bonded) or the single
+    /// chosen adapter (`wanted`), keeping the background adapter watcher updated.
+    pub fn route_multi(&self, wanted: &str, multi: &[String], ctx: &egui::Context) -> Route {
         let mut s = self.shared.lock().unwrap();
-        if s.wanted != wanted || !s.started {
+        if s.wanted != wanted || s.multi != multi || !s.started {
             s.wanted = wanted.to_owned();
-            s.route = compute(wanted);
+            s.multi = multi.to_vec();
+            s.route = compute_multi(wanted, multi);
         }
         if s.ctx.is_none() {
             s.ctx = Some(ctx.clone());
@@ -49,6 +58,13 @@ impl NetWatch {
         }
         s.route.clone()
     }
+}
+
+fn compute_multi(wanted: &str, multi: &[String]) -> Route {
+    if multi.len() >= 2 {
+        return blazingdl_engine::net::routes_for(multi, &adapters());
+    }
+    compute(wanted)
 }
 
 fn compute(wanted: &str) -> Route {
@@ -113,16 +129,20 @@ pub fn adapters() -> Vec<blazingdl_engine::net::Adapter> {
 fn watch(shared: Arc<Mutex<Shared>>) {
     loop {
         std::thread::sleep(EVERY);
-        let wanted = shared.lock().unwrap().wanted.clone();
-        let route = compute(&wanted);
+        let (wanted, multi) = {
+            let s = shared.lock().unwrap();
+            (s.wanted.clone(), s.multi.clone())
+        };
+        let route = compute_multi(&wanted, &multi);
         let mut s = shared.lock().unwrap();
-        if s.wanted == wanted && s.route != route {
+        if s.wanted == wanted && s.multi == multi && s.route != route {
             tracing::info!(
                 "network adapter: {}",
                 match &route {
                     Route::Any => "any".to_owned(),
                     Route::Down { label } => format!("{label} down"),
                     Route::Bound(b) => format!("{} {:?} {:?}", b.label, b.v4, b.v6),
+                    Route::Aggregate(bs) => format!("aggregate ({} NICs)", bs.len()),
                 }
             );
             s.route = route;

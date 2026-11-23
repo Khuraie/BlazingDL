@@ -1021,6 +1021,7 @@ dependencies = [
  "percent-encoding",
  "proptest",
  "reqwest 0.13.5",
+ "roxmltree 0.20.0",
  "rquickjs",
  "rustix 1.1.6",
  "rustls",

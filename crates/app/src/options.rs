@@ -2171,6 +2171,10 @@ impl OptionsDialog {
                 // relay, #35) all go through it on every system: nothing more to say.
                 (line, true)
             }
+            Route::Aggregate(bs) => (
+                format!("Multi-NIC aggregation active across {} adapters.", bs.len()),
+                true,
+            ),
         };
         let color = if ok {
             LIGHT_TEXT()

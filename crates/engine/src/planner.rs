@@ -235,6 +235,32 @@ impl Planner {
         })
     }
 
+    /// Hedged tail racing: when no segment is large enough to split in half, a fast idle worker
+    /// `w` takes over the remaining unclaimed tail owned by one of `slow_workers` so a sluggish
+    /// connection/NIC never stalls the final 5%. The straggler's next `claim` returns `Lost`.
+    pub fn preempt_slow_tail(
+        &mut self,
+        w: WorkerId,
+        slow_workers: &[WorkerId],
+    ) -> Option<Assignment> {
+        if slow_workers.is_empty() {
+            return None;
+        }
+        self.release(w);
+        let (i, _) = self
+            .segs
+            .iter()
+            .enumerate()
+            .filter(|(_, s)| {
+                s.unclaimed() > 0
+                    && s.worker
+                        .is_some_and(|owner| owner != w && slow_workers.contains(&owner))
+            })
+            .max_by_key(|(_, s)| s.unclaimed())?;
+        let pre = self.segs[i].worker;
+        Some(self.give(i, w, pre))
+    }
+
     /// How many bytes worker `w` may still fetch from `at` before its segment ends (the end
     /// moves down when the segment is split). `None`: `w` no longer owns a segment.
     pub fn room(&self, w: WorkerId, at: u64) -> Option<u64> {

@@ -30,16 +30,17 @@ colors:
 ## Core Tokens (`crates/app/assets/themes/saville.toml`)
 - **Geometry**: Strict `0px` corner radius across every frame, button, input, menu, progress track, and scrollbar.
 - **Rules**: `1px` solid architectural dividers (`#23262E` dark, `#CFCDC6` light) partitioning the Pulse Header, Catalog Rail, Transfer Table, and Telemetry Footer.
-- **Row Rhythm**: `32px` transfer rows, `28px` uppercase column headers, `28px` Catalog Rail entries, `86px` Pulse Header, `30px` Telemetry Footer.
+- **Row Rhythm**: `32px` transfer rows, `28px` uppercase column headers, `28px` Catalog Rail entries, `86px` Pulse Header, `36px` Command & Capture Strip, `30px` Telemetry Footer.
 - **Signal Color Coding**:
-  - `#E04826` / `#F27435` — Primary capture action end-cap, HTTP/Web protocol block, active selection bar, active download velocity & pulsar crest.
-  - `#2460B8` — BitTorrent protocol block & Torrent button end-cap.
-  - `#DFB516` — Video category block, Pause/Stopped hairline, Speed Limiter warning.
-  - `#28A763` — Completed/Verified state & Resume end-cap.
+  - `#E04826` / `#F27435` — Primary capture action end-cap, Quick-Add cap, HTTP/Web protocol block, active selection bar, active download velocity & pulsar crest.
+  - `#2460B8` — BitTorrent protocol block, Torrent button end-cap, active Multi-NIC Bond pill & live filter highlight.
+  - `#DFB516` — Video category block, Pause/Stopped hairline, Speed Limiter & active Focus Auto-Throttle warning.
+  - `#28A763` — Completed/Verified state, Resume end-cap, armed Focus Auto-Throttle pill.
   - `#ECEBE7` — Primary bone-white ink, primary `+ ADD URL` button fill, pulsar baseline traces.
 
 ## Signature Component Architecture (`crates/app/src/saville.rs`, `list.rs`)
-1. **Top Pulse Header**: Three-column horizontal bar divided by `1px` vertical rules — left `BLAZINGDL` catalog block with 5-swatch barcode, center live 5-line bone-white pulsar waveform + right-aligned bold tabular live speed readout, right two-row `0px` command cluster with signal end-caps.
-2. **Catalog Index Rail**: Full-height matte `#111317` sidebar with `8×8` flat color-block category markers, right-aligned two-digit counts, and a `3px` signal-ember active edge bar.
-3. **Transfer Table**: Flat `#0E0F11` rows separated by `1px` horizontal hairlines (zero vertical column grid clutter), double `5×14px` vertical protocol color blocks in the Source column, and razor-thin `2px` embedded progress hairlines directly inside the Status cell.
-4. **Telemetry Footer**: `30px` `#090A0C` ledger bar with status indicator block, uppercase transfer counts, limiter state, and live aggregate rate.
+1. **Top Pulse Header (`86px`)**: Three-column horizontal bar divided by `1px` vertical rules — left `BLAZINGDL` catalog block with 5-swatch barcode, center live 5-line bone-white pulsar waveform + right-aligned bold tabular live speed readout (and per-NIC aggregate readout when bonded), right two-row `0px` command cluster with signal end-caps.
+2. **Command & Capture Strip (`36px`)**: Flush `#0B0C0E` band below the Pulse Header housing the inline Quick-Add input (`Ctrl+L`, supports URLs, `magnet:`, `.meta4`/`.metalink`, `.nzb`, and inline checksums) + sharp `GO` button, live instant transfer filter (`Ctrl+F`) with clear button, and one-click `MULTI-NIC` & `FOCUS` signal pills aligned to `16px` outer gutters.
+3. **Catalog Index Rail**: Full-height matte `#111317` sidebar with `8×8` flat color-block category markers, right-aligned two-digit counts, and a `3px` signal-ember active edge bar.
+4. **Transfer Table**: Flat `#0E0F11` rows separated by `1px` horizontal hairlines (zero vertical column grid clutter), double `5×14px` vertical protocol color blocks in the Source column, and razor-thin `2px` embedded progress hairlines directly inside the Status cell.
+5. **Telemetry Footer (`30px`)**: `#090A0C` ledger bar with status indicator block, uppercase transfer counts, inline feedback notices, limiter/focus state, and live aggregate rate.

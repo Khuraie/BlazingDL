@@ -33,6 +33,9 @@ pub enum Route {
     Any,
     /// Through this adapter only.
     Bound(Arc<Binding>),
+    /// Multi-NIC bandwidth aggregation (Plexo-style): distribute parallel workers across all
+    /// listed active adapters simultaneously.
+    Aggregate(Vec<Arc<Binding>>),
     /// An adapter is chosen but it isn't there or has no address: nothing may connect.
     Down { label: String },
 }
@@ -58,11 +61,21 @@ impl Route {
         matches!(self, Route::Any)
     }
 
+    /// All active bindings carried by this route (0 for Any/Down, 1 for Bound, N for Aggregate).
+    pub fn bindings(&self) -> Vec<Arc<Binding>> {
+        match self {
+            Route::Bound(b) => vec![b.clone()],
+            Route::Aggregate(bs) => bs.clone(),
+            Route::Any | Route::Down { .. } => Vec::new(),
+        }
+    }
+
     /// The adapter's name, when one is chosen.
     pub fn label(&self) -> Option<&str> {
         match self {
             Route::Any => None,
             Route::Bound(b) => Some(&b.label),
+            Route::Aggregate(bs) => bs.first().map(|b| b.label.as_str()),
             Route::Down { label } => Some(label),
         }
     }
@@ -79,6 +92,14 @@ impl Route {
                 label: b.label.clone(),
                 ip,
             }),
+            Route::Aggregate(bs) if bs.iter().any(|b| b.allows(ip)) => Ok(()),
+            Route::Aggregate(bs) => Err(NetError::Family {
+                label: bs
+                    .first()
+                    .map(|b| b.label.clone())
+                    .unwrap_or_else(|| "aggregate".into()),
+                ip,
+            }),
         }
     }
 
@@ -86,6 +107,10 @@ impl Route {
     pub fn keep(&self, ips: Vec<IpAddr>) -> Vec<IpAddr> {
         match self {
             Route::Bound(b) => ips.into_iter().filter(|ip| b.allows(*ip)).collect(),
+            Route::Aggregate(bs) => ips
+                .into_iter()
+                .filter(|ip| bs.iter().any(|b| b.allows(*ip)))
+                .collect(),
             _ => ips,
         }
     }
@@ -220,29 +245,38 @@ pub fn bind_client(
         Route::Down { label } => Err(NetError::Down {
             label: label.clone(),
         }),
-        Route::Bound(_) if to_this_computer => Ok(builder),
-        Route::Bound(b) => {
-            #[cfg(windows)]
-            {
-                Ok(builder.local_address(b.windows_local()))
-            }
-            #[cfg(any(target_os = "linux", target_os = "android", target_os = "macos"))]
-            {
-                Ok(builder.interface(&b.name))
-            }
-            #[cfg(not(any(
-                windows,
-                target_os = "linux",
-                target_os = "android",
-                target_os = "macos"
-            )))]
-            {
-                let _ = builder;
-                Err(NetError::Down {
-                    label: b.label.clone(),
-                })
-            }
-        }
+        Route::Bound(_) | Route::Aggregate(_) if to_this_computer => Ok(builder),
+        Route::Bound(b) => bind_one(builder, b),
+        Route::Aggregate(bs) => match bs.first() {
+            Some(b) => bind_one(builder, b),
+            None => Ok(builder),
+        },
+    }
+}
+
+fn bind_one(
+    builder: reqwest::ClientBuilder,
+    b: &Binding,
+) -> Result<reqwest::ClientBuilder, NetError> {
+    #[cfg(windows)]
+    {
+        Ok(builder.local_address(b.windows_local()))
+    }
+    #[cfg(any(target_os = "linux", target_os = "android", target_os = "macos"))]
+    {
+        Ok(builder.interface(&b.name))
+    }
+    #[cfg(not(any(
+        windows,
+        target_os = "linux",
+        target_os = "android",
+        target_os = "macos"
+    )))]
+    {
+        let _ = builder;
+        Err(NetError::Down {
+            label: b.label.clone(),
+        })
     }
 }
 
@@ -295,6 +329,10 @@ pub async fn tcp_connect(
     route.check(addr.ip()).map_err(refused)?;
     let b = match route {
         Route::Bound(b) if !b.exempt(addr.ip()) => b,
+        Route::Aggregate(bs) => match bs.iter().find(|b| b.allows(addr.ip()) && !b.exempt(addr.ip())) {
+            Some(b) => b,
+            None => return tokio::net::TcpStream::connect(addr).await,
+        },
         _ => return tokio::net::TcpStream::connect(addr).await,
     };
     let socket = socket2::Socket::new(
@@ -321,9 +359,12 @@ pub fn tcp_connect_blocking(
         socket2::Type::STREAM,
         Some(socket2::Protocol::TCP),
     )?;
-    if let Route::Bound(b) = route
-        && !b.exempt(addr.ip())
-    {
+    let bound = match route {
+        Route::Bound(b) if !b.exempt(addr.ip()) => Some(b),
+        Route::Aggregate(bs) => bs.iter().find(|b| b.allows(addr.ip()) && !b.exempt(addr.ip())),
+        _ => None,
+    };
+    if let Some(b) = bound {
         b.pin(&socket, addr)?;
     }
     socket.connect_timeout(&addr.into(), timeout)?;
@@ -439,6 +480,39 @@ pub fn route_for(choice: &str, adapters: &[Adapter]) -> Route {
             .copied(),
         loopback_too: false,
     }))
+}
+
+/// Resolve a list of adapter names into a multi-NIC aggregate route (Plexo-style).
+/// - Empty list -> `Route::Any`
+/// - 1 active adapter -> `Route::Bound`
+/// - 2+ active adapters -> `Route::Aggregate`
+/// - All chosen adapters offline -> `Route::Down`
+pub fn routes_for(choices: &[String], adapters: &[Adapter]) -> Route {
+    let mut bindings: Vec<Arc<Binding>> = Vec::new();
+    let mut names: Vec<&str> = Vec::new();
+    for c in choices {
+        let trimmed = c.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        names.push(trimmed);
+        if let Route::Bound(b) = route_for(trimmed, adapters)
+            && !bindings.iter().any(|x| x.name == b.name)
+        {
+            bindings.push(b);
+        }
+    }
+    if names.is_empty() {
+        Route::Any
+    } else if bindings.is_empty() {
+        Route::Down {
+            label: names.join(", "),
+        }
+    } else if bindings.len() == 1 {
+        Route::Bound(bindings.remove(0))
+    } else {
+        Route::Aggregate(bindings)
+    }
 }
 
 /// Whether a host (from a URL or a proxy address) is this computer.
@@ -587,5 +661,30 @@ mod tests {
         };
         let err = tcp_connect(&down, addr).await.unwrap_err();
         assert_eq!(err.kind(), std::io::ErrorKind::NetworkUnreachable);
+    }
+
+    #[test]
+    fn routes_for_aggregates_multiple_adapters() {
+        let list = [
+            nic("Ethernet", &["192.168.1.11"], &[], &[]),
+            nic("Wi-Fi", &["192.168.2.22"], &["2001:db8::2"], &[]),
+            nic("DownVPN", &[], &[], &[]),
+        ];
+        assert_eq!(routes_for(&[], &list), Route::Any);
+        let one = routes_for(&["Ethernet".into()], &list);
+        assert!(matches!(one, Route::Bound(ref b) if b.name == "Ethernet"));
+        let agg = routes_for(&["Ethernet".into(), "Wi-Fi".into(), "DownVPN".into()], &list);
+        match agg {
+            Route::Aggregate(ref bs) => {
+                assert_eq!(bs.len(), 2);
+                assert_eq!(bs[0].name, "Ethernet");
+                assert_eq!(bs[1].name, "Wi-Fi");
+                assert_eq!(agg.bindings().len(), 2);
+                assert_eq!(agg.label(), Some("Ethernet"));
+            }
+            other => panic!("expected Aggregate, got {other:?}"),
+        }
+        let down = routes_for(&["DownVPN".into(), "Missing".into()], &list);
+        assert!(matches!(down, Route::Down { .. }));
     }
 }

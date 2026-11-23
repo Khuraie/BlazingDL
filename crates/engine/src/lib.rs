@@ -1,5 +1,6 @@
 //! BlazingDL download engine. See notes/ENGINE.md.
 
+pub mod adaptive;
 pub mod agent;
 pub mod browserlike;
 pub mod disk;
@@ -11,8 +12,10 @@ pub mod hosts;
 // Public for the fuzz targets (fuzz/): `links` and `declared_videos` without a network.
 pub mod html;
 pub mod limiter;
+pub mod metalink;
 pub mod naming;
 pub mod net;
+pub mod nzb;
 pub mod pac;
 pub mod planner;
 pub mod repair;
@@ -28,12 +31,14 @@ pub mod verify;
 
 pub use dns::{Dns, DnsChoice, DnsError};
 pub use download::{
-    Destination, Download, Error, Event, FileHook, KeptAnswer, NetKind, Options, Outcome,
+    Destination, Download, Error, Event, FileHook, KeptAnswer, NetKind, NicSpeed, Options, Outcome,
     ProbeInfo, Proxy, Request, Snapshot, fetch, hop_client, http_client, page_links, page_videos,
     probe, probe_kept, supported,
 };
 pub use html::{DeclaredVideo, DeclaredVideos};
+pub use metalink::MetalinkFile;
 pub use net::{NetError, Route};
+pub use nzb::{NntpConfig, Nzb};
 pub use server::Server;
 pub use sites::Refusal;
 pub use tls::CertProblem;

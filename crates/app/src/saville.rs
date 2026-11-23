@@ -13,6 +13,8 @@ use crate::winui::{self, fill_l as fill, text_font, text_width_font};
 
 /// Height of the top Saville Pulse Header band (below the 20 px menu bar).
 pub const HEADER_H: f32 = 86.0;
+/// Height of the Saville inline Command & Capture strip (Quick-Add, Live Filter, NIC/Focus pills).
+pub const CMD_BAR_H: f32 = 36.0;
 /// Height of the bottom Saville telemetry footer bar.
 pub const FOOTER_H: f32 = 30.0;
 /// Height of each row in the Saville Catalog Rail.
@@ -40,6 +42,7 @@ pub struct PulseHistory {
     pub current_rate: f64,
     pub active_count: usize,
     pub active_conns: usize,
+    pub nic_summary: String,
     phase: f32,
 }
 
@@ -53,6 +56,7 @@ impl Default for PulseHistory {
             current_rate: 0.0,
             active_count: 0,
             active_conns: 0,
+            nic_summary: String::new(),
             phase: 0.0,
         }
     }
@@ -73,6 +77,10 @@ impl PulseHistory {
             }
             self.samples.push_back(rate.max(0.0));
         }
+    }
+
+    pub fn record_nics(&mut self, summary: String) {
+        self.nic_summary = summary;
     }
 
     pub fn peak(&self) -> f64 {
@@ -338,7 +346,9 @@ pub fn header(
             "0 B/S".to_owned()
         };
         let speed_font = FontId::new(22.0, egui::FontFamily::Name("segoe-bold".into()));
-        let sub_str = if pulse.active_count > 0 {
+        let sub_str = if !pulse.nic_summary.is_empty() {
+            pulse.nic_summary.clone()
+        } else if pulse.active_count > 0 {
             format!(
                 "{} ACTIVE · {} STREAMS",
                 pulse.active_count,
@@ -392,6 +402,292 @@ pub fn header(
     }
 
     event
+}
+
+/// Actions emitted by the inline Saville Command & Capture strip.
+pub enum CommandBarEvent {
+    SubmitAdd(String),
+    ToggleMultiNic,
+    ToggleFocus,
+}
+
+/// Inline 36px Saville Command & Capture strip directly below the Pulse Header:
+/// - Left: Quick-Add bar for URL / magnet: / .meta4 / .nzb / URL+sha256 (`Ctrl+L`, Enter submits)
+/// - Middle: Live instant filter (`Ctrl+F`) with crisp `×` clear button
+/// - Right: Multi-NIC Bond toggle pill & Game/Focus Auto-Throttle toggle pill
+#[allow(clippy::too_many_arguments)]
+pub fn command_bar(
+    ui: &mut Ui,
+    o: Pos2,
+    width: f32,
+    add_buf: &mut String,
+    filter_buf: &mut String,
+    nic_bonded: usize,
+    focus_enabled: bool,
+    focus_reason: Option<&crate::focusmode::ThrottleReason>,
+    focus_add_req: bool,
+    focus_filter_req: bool,
+) -> Option<CommandBarEvent> {
+    let p = ui.painter().clone();
+    let top = o.y + crate::chrome::MENU_H + HEADER_H;
+    let band = Rect::from_min_size(pos2(o.x, top), vec2(width, CMD_BAR_H));
+    let strip_bg = Color32::from_rgb(0x0B, 0x0C, 0x0E);
+    let field_bg = Color32::from_rgb(0x11, 0x13, 0x17);
+    p.rect_filled(winui::rect(band), 0.0, strip_bg);
+    fill(
+        &p,
+        o.x,
+        band.bottom() - 1.0,
+        o.x + width - 1.0,
+        band.bottom() - 1.0,
+        rule_color(),
+    );
+
+    let mut ev: Option<CommandBarEvent> = None;
+    let pad = 16.0;
+    let gap = 8.0;
+    let ctrl_h = 24.0;
+    let cy = top + (CMD_BAR_H - ctrl_h) * 0.5;
+    let c = crate::theme::colors();
+    let pill_font = FontId::new(10.5, egui::FontFamily::Name("segoe-bold".into()));
+
+    // ---- Right pills: MULTI-NIC & FOCUS ----
+    let focus_label = if let Some(r) = focus_reason {
+        r.short_label()
+    } else if focus_enabled {
+        "FOCUS: ON".to_owned()
+    } else {
+        "FOCUS: OFF".to_owned()
+    };
+    let nic_label = if nic_bonded >= 2 {
+        format!("BOND: {nic_bonded} NICS")
+    } else {
+        "MULTI-NIC".to_owned()
+    };
+    let focus_w = (text_width_font(&p, pill_font.clone(), &focus_label).ceil() + 22.0).max(88.0);
+    let nic_w = (text_width_font(&p, pill_font.clone(), &nic_label).ceil() + 22.0).max(88.0);
+
+    let focus_x = o.x + width - pad - focus_w;
+    let nic_x = focus_x - gap - nic_w;
+
+    // Draw FOCUS pill
+    let focus_rect = winui::rect(Rect::from_min_size(pos2(focus_x, cy), vec2(focus_w, ctrl_h)));
+    let focus_resp = ui
+        .interact(
+            focus_rect,
+            egui::Id::unique("saville-focus-pill"),
+            winui::pointer_only(),
+        )
+        .on_hover_text(
+            "Game / Focus Auto-Throttle: caps download bandwidth automatically during fullscreen apps or 24h schedule",
+        );
+    let focus_cap = if focus_reason.is_some() {
+        SIGNAL_OCHRE
+    } else if focus_enabled {
+        SIGNAL_EMERALD
+    } else {
+        SIGNAL_STEEL
+    };
+    let focus_bg = if focus_resp.hovered() { c.button_hot } else { field_bg };
+    p.rect_filled(focus_rect, 0.0, focus_bg);
+    p.rect_stroke(
+        focus_rect,
+        0.0,
+        Stroke::new(1.0, if focus_reason.is_some() { SIGNAL_OCHRE } else { rule_color() }),
+        egui::StrokeKind::Inside,
+    );
+    p.rect_filled(
+        winui::rect(Rect::from_min_size(pos2(focus_x, cy), vec2(3.0, ctrl_h))),
+        0.0,
+        focus_cap,
+    );
+    let flw = text_width_font(&p, pill_font.clone(), &focus_label);
+    text_font(
+        &p,
+        pill_font.clone(),
+        focus_x + 3.0 + ((focus_w - 3.0 - flw) * 0.5).max(4.0),
+        cy + 16.0,
+        &focus_label,
+        if focus_reason.is_some() {
+            SIGNAL_OCHRE
+        } else if focus_enabled {
+            primary_ink()
+        } else {
+            muted_ink()
+        },
+    );
+    if focus_resp.clicked() {
+        ev = Some(CommandBarEvent::ToggleFocus);
+    }
+
+    // Draw MULTI-NIC pill
+    let nic_rect = winui::rect(Rect::from_min_size(pos2(nic_x, cy), vec2(nic_w, ctrl_h)));
+    let nic_resp = ui
+        .interact(
+            nic_rect,
+            egui::Id::unique("saville-nic-pill"),
+            winui::pointer_only(),
+        )
+        .on_hover_text(
+            "Multi-NIC Bandwidth Aggregation: click to bond all active network adapters across parallel workers",
+        );
+    let nic_cap = if nic_bonded >= 2 { SIGNAL_COBALT } else { SIGNAL_STEEL };
+    let nic_bg = if nic_resp.hovered() { c.button_hot } else { field_bg };
+    p.rect_filled(nic_rect, 0.0, nic_bg);
+    p.rect_stroke(
+        nic_rect,
+        0.0,
+        Stroke::new(1.0, if nic_bonded >= 2 { SIGNAL_COBALT } else { rule_color() }),
+        egui::StrokeKind::Inside,
+    );
+    p.rect_filled(
+        winui::rect(Rect::from_min_size(pos2(nic_x, cy), vec2(3.0, ctrl_h))),
+        0.0,
+        nic_cap,
+    );
+    let nlw = text_width_font(&p, pill_font.clone(), &nic_label);
+    text_font(
+        &p,
+        pill_font.clone(),
+        nic_x + 3.0 + ((nic_w - 3.0 - nlw) * 0.5).max(4.0),
+        cy + 16.0,
+        &nic_label,
+        if nic_bonded >= 2 { primary_ink() } else { muted_ink() },
+    );
+    if nic_resp.clicked() {
+        ev = Some(CommandBarEvent::ToggleMultiNic);
+    }
+
+    // ---- Left + Middle inputs fill remaining width cleanly ----
+    let avail = (nic_x - gap - (o.x + pad)).max(120.0);
+    let filter_w = (avail * 0.30).clamp(150.0, 260.0);
+    let add_total_w = (avail - filter_w - gap).max(160.0);
+    let go_w = 42.0;
+    let add_box_w = (add_total_w - go_w).max(100.0);
+
+    let add_x = o.x + pad;
+    let add_box_rect = winui::rect(Rect::from_min_size(pos2(add_x, cy), vec2(add_box_w, ctrl_h)));
+    p.rect_filled(add_box_rect, 0.0, field_bg);
+    p.rect_stroke(add_box_rect, 0.0, Stroke::new(1.0, rule_color()), egui::StrokeKind::Inside);
+    p.rect_filled(
+        winui::rect(Rect::from_min_size(pos2(add_x, cy), vec2(3.0, ctrl_h))),
+        0.0,
+        SIGNAL_EMBER,
+    );
+
+    let add_inner = winui::rect(Rect::from_min_size(
+        pos2(add_x + 8.0, cy + 3.0),
+        vec2((add_box_w - 12.0).max(40.0), ctrl_h - 6.0),
+    ));
+    let mut add_ui = ui.new_child(egui::UiBuilder::new().max_rect(add_inner));
+    let add_edit = add_ui.add(
+        egui::TextEdit::singleline(add_buf)
+            .id_salt("saville-quick-add")
+            .frame(egui::Frame::NONE)
+            .font(FontId::new(11.5, egui::FontFamily::Name("segoe".into())))
+            .text_color(primary_ink())
+            .hint_text("Paste URL, magnet:, .meta4, .nzb, or URL + sha256  [Ctrl+L]")
+            .desired_width(add_inner.width()),
+    );
+    if focus_add_req {
+        add_edit.request_focus();
+    }
+    let enter_add = add_edit.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
+
+    // Sharp GO button flush on the right of Quick-Add
+    let go_x = add_x + add_box_w;
+    let go_rect = winui::rect(Rect::from_min_size(pos2(go_x, cy), vec2(go_w, ctrl_h)));
+    let has_add = !add_buf.trim().is_empty();
+    let go_resp = ui.interact(
+        go_rect,
+        egui::Id::unique("saville-quick-go"),
+        winui::pointer_only(),
+    );
+    let go_bg = if has_add {
+        if go_resp.hovered() {
+            c.button_accent_hot
+        } else {
+            SIGNAL_EMBER
+        }
+    } else if go_resp.hovered() {
+        c.button_hot
+    } else {
+        c.button
+    };
+    p.rect_filled(go_rect, 0.0, go_bg);
+    p.rect_stroke(
+        go_rect,
+        0.0,
+        Stroke::new(1.0, if has_add { SIGNAL_EMBER } else { rule_color() }),
+        egui::StrokeKind::Inside,
+    );
+    let gw = text_width_font(&p, pill_font.clone(), "GO");
+    text_font(
+        &p,
+        pill_font.clone(),
+        go_x + (go_w - gw) * 0.5,
+        cy + 16.0,
+        "GO",
+        if has_add { c.button_accent_text } else { muted_ink() },
+    );
+    if (enter_add || go_resp.clicked()) && has_add {
+        let submitted = std::mem::take(add_buf);
+        ev = Some(CommandBarEvent::SubmitAdd(submitted));
+    }
+
+    // ---- Middle: Live Instant Search/Filter box ----
+    let flt_x = add_x + add_total_w + gap;
+    let flt_rect = winui::rect(Rect::from_min_size(pos2(flt_x, cy), vec2(filter_w, ctrl_h)));
+    let has_flt = !filter_buf.is_empty();
+    p.rect_filled(flt_rect, 0.0, field_bg);
+    p.rect_stroke(
+        flt_rect,
+        0.0,
+        Stroke::new(1.0, if has_flt { SIGNAL_COBALT } else { rule_color() }),
+        egui::StrokeKind::Inside,
+    );
+    let clear_w = if has_flt { 20.0 } else { 0.0 };
+    let flt_inner = winui::rect(Rect::from_min_size(
+        pos2(flt_x + 7.0, cy + 3.0),
+        vec2((filter_w - 10.0 - clear_w).max(40.0), ctrl_h - 6.0),
+    ));
+    let mut flt_ui = ui.new_child(egui::UiBuilder::new().max_rect(flt_inner));
+    let flt_edit = flt_ui.add(
+        egui::TextEdit::singleline(filter_buf)
+            .id_salt("saville-quick-filter")
+            .frame(egui::Frame::NONE)
+            .font(FontId::new(11.5, egui::FontFamily::Name("segoe".into())))
+            .text_color(primary_ink())
+            .hint_text("Filter transfers…  [Ctrl+F]")
+            .desired_width(flt_inner.width()),
+    );
+    if focus_filter_req {
+        flt_edit.request_focus();
+    }
+    if has_flt {
+        let clr_rect = winui::rect(Rect::from_min_size(
+            pos2(flt_x + filter_w - clear_w, cy),
+            vec2(clear_w, ctrl_h),
+        ));
+        let clr_resp = ui.interact(
+            clr_rect,
+            egui::Id::unique("saville-filter-clear"),
+            winui::pointer_only(),
+        );
+        text_font(
+            &p,
+            pill_font,
+            flt_x + filter_w - 13.0,
+            cy + 16.0,
+            "×",
+            if clr_resp.hovered() { primary_ink() } else { muted_ink() },
+        );
+        if clr_resp.clicked() {
+            filter_buf.clear();
+        }
+    }
+
+    ev
 }
 
 /// Draws 5 stacked Joy Division / Saville white-hairline pulsar traces driven by live throughput.
