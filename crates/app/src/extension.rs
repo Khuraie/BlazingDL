@@ -118,7 +118,11 @@ impl Extension {
         #[cfg(unix)]
         let found = crate::unix::browsers();
         let mut browsers: Vec<_> = found.into_iter().map(|(n, p)| (n, Some(p))).collect();
-        // The table's order (Chrome first, its button the accent one), others after.
+        // Keep only Firefox / Gecko browsers until a Chrome Web Store ID is published.
+        if blazingdl_ipc::extension::store_page().is_none() {
+            browsers.retain(|(n, _)| is_gecko(n));
+        }
+        // The table's order (first row's button is the accent one), others after.
         browsers.sort_by_key(|(n, _)| {
             blazingdl_ipc::browsers::BROWSERS
                 .iter()
@@ -130,7 +134,7 @@ impl Extension {
             browsers.push((SAFARI.to_owned(), None));
         }
         if browsers.is_empty() {
-            browsers.push((String::new(), None));
+            browsers.push(("Mozilla Firefox".to_owned(), None));
         }
         Self::with_reader(browsers, Status::read)
     }
@@ -385,6 +389,12 @@ impl Extension {
             (
                 crate::i18n::t("Connected: downloads from your browser now come here.").to_owned(),
                 winui::SUCCESS(),
+            )
+        } else if store.is_none() {
+            (
+                // i18n: in the browser extension's window when only Firefox is offered
+                crate::i18n::t("Once it is added, this window says so.").to_owned(),
+                muted,
             )
         } else {
             (

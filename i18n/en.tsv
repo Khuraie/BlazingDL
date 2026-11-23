@@ -2744,6 +2744,9 @@
 #. text in the Scheduler window; option (radio button) in the Scheduler window
 	Once at	Once at
 #. text in extension.rs
+#. in the browser extension's window when only Firefox is offered
+	Once it is added, this window says so.	Once it is added, this window says so.
+#. text in extension.rs
 	Once it is added, this window says so. Chrome may also ask by itself at its next start.	Once it is added, this window says so. Chrome may also ask by itself at its next start.
 #. text in the Options window
 	One address per line; * stands for any text: example.com/private/*	One address per line; * stands for any text: example.com/private/*
