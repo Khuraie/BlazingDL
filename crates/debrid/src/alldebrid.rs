@@ -253,10 +253,9 @@ pub(crate) async fn magnet_status(
     let m: Magnets = call(http, http.post_form(&url, &[("id", id)]).bearer_auth(key)).await?;
     let m = match m.magnets {
         OneOrMany::One(m) => m,
-        OneOrMany::Many(v) => v
-            .into_iter()
-            .next()
-            .ok_or(Fault::Service(blazingdl_engine::ServiceFault::FileUnavailable))?,
+        OneOrMany::Many(v) => v.into_iter().next().ok_or(Fault::Service(
+            blazingdl_engine::ServiceFault::FileUnavailable,
+        ))?,
     };
     if let Some(s) = crate::torrents::ad_status(&m) {
         return Ok(s);
@@ -275,7 +274,9 @@ pub(crate) async fn magnet_status(
     let url = http.services.ad.join("v4/magnet/files").expect("relative");
     let f: Files = call(http, http.post_form(&url, &[("id[]", id)]).bearer_auth(key)).await?;
     let Some(of) = f.magnets.into_iter().next() else {
-        return Err(Fault::Service(blazingdl_engine::ServiceFault::FileUnavailable));
+        return Err(Fault::Service(
+            blazingdl_engine::ServiceFault::FileUnavailable,
+        ));
     };
     if let Some(e) = of.error {
         return Err(fault_of(&e.code, &e.message));

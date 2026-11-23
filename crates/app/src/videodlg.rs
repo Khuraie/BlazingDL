@@ -6,10 +6,10 @@
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-use egui::{Pos2, Ui, pos2};
 use blazingdl_tools::declared::Declared;
 use blazingdl_tools::resolve::{Choice, Looked, SubChoice, Video};
 use blazingdl_tools::video::{ALL_UPLOADERS, Subs};
+use egui::{Pos2, Ui, pos2};
 
 use crate::dialogs::{Outcome, window};
 use crate::model::Category;
@@ -323,13 +323,20 @@ impl VideoDialog {
     }
 
     /// The part as typed (#1662): none while Part isn't ticked; why it can't be, else.
-    pub fn part(&self) -> Result<Option<blazingdl_tools::part::Part>, blazingdl_tools::part::Problem> {
+    pub fn part(
+        &self,
+    ) -> Result<Option<blazingdl_tools::part::Part>, blazingdl_tools::part::Problem> {
         if !self.part_on || self.list.is_some() {
             return Ok(None);
         }
         let duration = self.video.as_ref().and_then(|(v, _)| v.duration);
-        blazingdl_tools::part::Part::checked(&self.part_from, &self.part_to, self.part_exact, duration)
-            .map(Some)
+        blazingdl_tools::part::Part::checked(
+            &self.part_from,
+            &self.part_to,
+            self.part_exact,
+            duration,
+        )
+        .map(Some)
     }
 
     /// Part (#1662) ticked with these times and cut (`/show video-part`: its screenshots).
@@ -600,7 +607,9 @@ impl VideoDialog {
             return Some(list.sound_only());
         }
         let (_, choices) = self.video.as_ref()?;
-        choices.get(self.chosen).map(blazingdl_tools::resolve::is_audio)
+        choices
+            .get(self.chosen)
+            .map(blazingdl_tools::resolve::is_audio)
     }
 
     /// The category the download is listed under (#611), and whose folder "Change folder for
@@ -687,7 +696,9 @@ impl VideoDialog {
             let res = match tool {
                 Tool::YtDlp => blazingdl_tools::install_latest(&dir, &net, None).await,
                 Tool::Ffmpeg => blazingdl_tools::ffmpeg::install_latest(&dir, &net, None).await,
-                Tool::JsRuntime => blazingdl_tools::jsruntime::install_latest(&dir, &net, None).await,
+                Tool::JsRuntime => {
+                    blazingdl_tools::jsruntime::install_latest(&dir, &net, None).await
+                }
             };
             let name = tool.name();
             // What failed and what to do (#816): wrapped in the empty list below.
@@ -1490,7 +1501,9 @@ impl VideoDialog {
             .as_ref()
             .and_then(|(_, c)| c.get(self.chosen))
             .cloned();
-        let audio = choice.as_ref().is_some_and(blazingdl_tools::resolve::is_audio);
+        let audio = choice
+            .as_ref()
+            .is_some_and(blazingdl_tools::resolve::is_audio);
         // A part's would be the whole video's, out of step with it (#1662).
         let on = !self.subs.is_empty() && !audio && !self.part_on;
         let items = sub_items(&self.subs, self.video.is_some());
@@ -1741,8 +1754,8 @@ pub(crate) fn look_up(
         handle: rt.clone(),
         opts: crate::settings::own_net(),
     };
-    let (mut looked, _, declared) =
-        blazingdl_tools::declared::look_up(exe, page, browser, &reader).map_err(|e| e.to_string())?;
+    let (mut looked, _, declared) = blazingdl_tools::declared::look_up(exe, page, browser, &reader)
+        .map_err(|e| e.to_string())?;
     if let Looked::Video(v) = &mut looked
         && v.needs_size()
     {
@@ -1778,7 +1791,10 @@ pub(crate) fn look_up_kept(
     page: &str,
     browser: &blazingdl_tools::proc::FromBrowser,
     rt: &tokio::runtime::Handle,
-) -> (Result<Looked, String>, Option<blazingdl_tools::proc::LookedUp>) {
+) -> (
+    Result<Looked, String>,
+    Option<blazingdl_tools::proc::LookedUp>,
+) {
     let (mut res, kept) = match blazingdl_tools::resolve::look_up_kept(exe, page, browser) {
         Ok((looked, out)) => (Ok(looked), Some(out)),
         Err(e) => (Err(e.to_string()), None),

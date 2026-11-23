@@ -153,7 +153,9 @@ fn report_fields() -> Vec<(&'static str, String)> {
     ];
     fields.push((
         "install",
-        blazingdl_tools::update::Install::detect().label().to_owned(),
+        blazingdl_tools::update::Install::detect()
+            .label()
+            .to_owned(),
     ));
     fields
 }
@@ -276,7 +278,9 @@ async fn fetch(
             };
         }
         // No release published yet: nothing newer than this.
-        Err(blazingdl_tools::Error::Http(e)) if e.status() == Some(reqwest::StatusCode::NOT_FOUND) => {
+        Err(blazingdl_tools::Error::Http(e))
+            if e.status() == Some(reqwest::StatusCode::NOT_FOUND) =>
+        {
             return Ok(Found::Latest);
         }
         Err(blazingdl_tools::Error::Http(e)) => return Err(e.to_string()),
@@ -541,9 +545,7 @@ impl Updates {
                     }
                     Some(Ok(Found::Latest)) => {
                         let line = crate::i18n::fmt(
-                            crate::i18n::t(
-                                "You have the latest version of BlazingDL ({version}).",
-                            ),
+                            crate::i18n::t("You have the latest version of BlazingDL ({version})."),
                             &[("version", VERSION)],
                         );
                         winui::paragraph(&p, o.x + 11.0, o.y + 24.0, &line, ink, right, 13.0);
@@ -563,9 +565,7 @@ impl Updates {
                     }
                     Some(Ok(Found::Newer(rel))) => {
                         let line = crate::i18n::fmt(
-                            crate::i18n::t(
-                                "BlazingDL {version} is available (released {date}).",
-                            ),
+                            crate::i18n::t("BlazingDL {version} is available (released {date})."),
                             &[("version", &rel.version), ("date", &rel.date)],
                         );
                         winui::fit(
@@ -914,13 +914,7 @@ impl About {
                     include_bytes!("../assets/icons/app/blazingdl-48.png"),
                 )
                 .paint_at(ui, winui::r(o, 16.0, 16.0, 48.0, 48.0));
-                winui::text(
-                    &p,
-                    o.x + 80.0,
-                    o.y + 28.0,
-                    crate::i18n::t("BlazingDL"),
-                    ink,
-                );
+                winui::text(&p, o.x + 80.0, o.y + 28.0, crate::i18n::t("BlazingDL"), ink);
                 spoken_line(
                     ui,
                     r(o, 80.0, 14.0, 324.0, 18.0),
@@ -1731,10 +1725,7 @@ mod tests {
     #[test]
     fn help_pages_are_the_websites_in_the_interface_language() {
         let at = |doc, lang| page_url(doc, lang);
-        assert_eq!(
-            at("README.md", "en"),
-            "https://blazingdl.app/help/"
-        );
+        assert_eq!(at("README.md", "en"), "https://blazingdl.app/help/");
         assert_eq!(
             at("README.md#tutorials", "en"),
             "https://blazingdl.app/help/#tutorials"
@@ -1825,9 +1816,7 @@ mod tests {
             docs.push(blazingdl_ipc::extension::help_doc(why));
         }
         let calls = regex::Regex::new(r#"(?:open_page|HelpPage)\(\s*"([^"]+)""#).unwrap();
-        let site =
-            regex::Regex::new(r"https://blazingdl\.app/help/([\w.-]*)(#[\w-]+)?")
-                .unwrap();
+        let site = regex::Regex::new(r"https://blazingdl\.app/help/([\w.-]*)(#[\w-]+)?").unwrap();
         let mut files = vec![];
         let mut dirs = vec![root().join("crates"), root().join("extension")];
         while let Some(dir) = dirs.pop() {
@@ -1907,7 +1896,9 @@ mod tests {
     #[test]
     #[ignore = "needs the website built, in BLAZINGDL_SITE_DIR"]
     fn linked_help_pages_are_on_the_built_site() {
-        let out = std::path::PathBuf::from(std::env::var("BLAZINGDL_SITE_DIR").expect("BLAZINGDL_SITE_DIR"));
+        let out = std::path::PathBuf::from(
+            std::env::var("BLAZINGDL_SITE_DIR").expect("BLAZINGDL_SITE_DIR"),
+        );
         for doc in linked_docs() {
             let url = page_url(&doc, "en");
             let path = url.strip_prefix(SITE).unwrap();

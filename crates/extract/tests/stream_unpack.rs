@@ -36,7 +36,7 @@ fn make_raw_zstd_frame(data: &[u8]) -> Vec<u8> {
     let chunks: Vec<&[u8]> = data.chunks(max_block).collect();
     for (i, ch) in chunks.iter().enumerate() {
         let last = u32::from(i + 1 == chunks.len());
-        let header: u32 = last | (0 << 1) | ((ch.len() as u32) << 3);
+        let header: u32 = last | ((ch.len() as u32) << 3);
         let b = header.to_le_bytes();
         out.extend_from_slice(&b[0..3]);
         out.extend_from_slice(ch);
@@ -45,7 +45,9 @@ fn make_raw_zstd_frame(data: &[u8]) -> Vec<u8> {
 }
 
 /// Spawn a tiny local HTTP/1.1 server supporting `HEAD`, `GET`, and `Range: bytes=start-end`.
-async fn spawn_range_server(routes: HashMap<String, Vec<u8>>) -> (Url, tokio::task::JoinHandle<()>) {
+async fn spawn_range_server(
+    routes: HashMap<String, Vec<u8>>,
+) -> (Url, tokio::task::JoinHandle<()>) {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     let routes = Arc::new(routes);
@@ -137,9 +139,21 @@ async fn streams_remote_zip_over_range_and_resumes_cleanly() {
     let big_a = vec![b'A'; 48 * 1024];
     let big_b = (0..32_768).map(|i| (i % 251) as u8).collect::<Vec<_>>();
     let zip_bytes = build_test_zip(&[
-        ("game/bin/engine.dll", &big_a, zip::CompressionMethod::Deflated),
-        ("game/readme.txt", b"BlazingDL 1x disk unpack!", zip::CompressionMethod::Stored),
-        ("game/assets/map.dat", &big_b, zip::CompressionMethod::Deflated),
+        (
+            "game/bin/engine.dll",
+            &big_a,
+            zip::CompressionMethod::Deflated,
+        ),
+        (
+            "game/readme.txt",
+            b"BlazingDL 1x disk unpack!",
+            zip::CompressionMethod::Stored,
+        ),
+        (
+            "game/assets/map.dat",
+            &big_b,
+            zip::CompressionMethod::Deflated,
+        ),
     ]);
 
     let mut routes = HashMap::new();
@@ -149,20 +163,38 @@ async fn streams_remote_zip_over_range_and_resumes_cleanly() {
     let dest = tempfile::tempdir().unwrap();
     let client = reqwest::Client::new();
     let url = base.join("MyGame.zip").unwrap();
-    let report = unpack_url(&client, &url, dest.path(), 4, Arc::new(AtomicBool::new(false)))
-        .await
-        .expect("stream zip unpack succeeds");
+    let report = unpack_url(
+        &client,
+        &url,
+        dest.path(),
+        4,
+        Arc::new(AtomicBool::new(false)),
+    )
+    .await
+    .expect("stream zip unpack succeeds");
 
     assert_eq!(report.files, 3);
     assert_eq!(report.skipped_resumed, 0);
-    assert!(!dest.path().join("MyGame.zip").exists(), "archive never written to disk");
-    assert!(!dest.path().join(RESUME_FILE_NAME).exists(), "resume state cleared on finish");
-    assert_eq!(std::fs::read(dest.path().join("game/bin/engine.dll")).unwrap(), big_a);
+    assert!(
+        !dest.path().join("MyGame.zip").exists(),
+        "archive never written to disk"
+    );
+    assert!(
+        !dest.path().join(RESUME_FILE_NAME).exists(),
+        "resume state cleared on finish"
+    );
+    assert_eq!(
+        std::fs::read(dest.path().join("game/bin/engine.dll")).unwrap(),
+        big_a
+    );
     assert_eq!(
         std::fs::read(dest.path().join("game/readme.txt")).unwrap(),
         b"BlazingDL 1x disk unpack!"
     );
-    assert_eq!(std::fs::read(dest.path().join("game/assets/map.dat")).unwrap(), big_b);
+    assert_eq!(
+        std::fs::read(dest.path().join("game/assets/map.dat")).unwrap(),
+        big_b
+    );
 
     // Simulate interrupted resume: keep readme.txt + resume state listing it completed, delete others.
     std::fs::remove_file(dest.path().join("game/bin/engine.dll")).unwrap();
@@ -175,12 +207,21 @@ async fn streams_remote_zip_over_range_and_resumes_cleanly() {
         ),
     )
     .unwrap();
-    let resumed = unpack_url(&client, &url, dest.path(), 4, Arc::new(AtomicBool::new(false)))
-        .await
-        .expect("resumed stream zip unpack succeeds");
+    let resumed = unpack_url(
+        &client,
+        &url,
+        dest.path(),
+        4,
+        Arc::new(AtomicBool::new(false)),
+    )
+    .await
+    .expect("resumed stream zip unpack succeeds");
     assert_eq!(resumed.skipped_resumed, 1);
     assert_eq!(resumed.files, 2);
-    assert_eq!(std::fs::read(dest.path().join("game/bin/engine.dll")).unwrap(), big_a);
+    assert_eq!(
+        std::fs::read(dest.path().join("game/bin/engine.dll")).unwrap(),
+        big_a
+    );
 
     srv.abort();
 }
@@ -210,9 +251,15 @@ async fn streams_remote_tar_gz_directly_to_folder() {
     let dest = tempfile::tempdir().unwrap();
     let client = reqwest::Client::new();
     let url = base.join("bundle.tar.gz").unwrap();
-    let report = unpack_url(&client, &url, dest.path(), 4, Arc::new(AtomicBool::new(false)))
-        .await
-        .expect("tar.gz stream unpack succeeds");
+    let report = unpack_url(
+        &client,
+        &url,
+        dest.path(),
+        4,
+        Arc::new(AtomicBool::new(false)),
+    )
+    .await
+    .expect("tar.gz stream unpack succeeds");
 
     assert_eq!(report.files, 1);
     assert!(!dest.path().join("bundle.tar.gz").exists());
@@ -286,8 +333,14 @@ async fn acpkg_v1_verifies_sha256_unpacks_local_and_remote_and_resumes_free() {
     .expect("local acpkg unpack succeeds");
     assert_eq!(local_rep.files, 2);
     assert!(!chunk_path.exists(), "chunk deleted after consumption");
-    assert_eq!(std::fs::read(local_dest.path().join("sub/one.txt")).unwrap(), f1);
-    assert_eq!(std::fs::read(local_dest.path().join("data/two.bin")).unwrap(), f2);
+    assert_eq!(
+        std::fs::read(local_dest.path().join("sub/one.txt")).unwrap(),
+        f1
+    );
+    assert_eq!(
+        std::fs::read(local_dest.path().join("data/two.bin")).unwrap(),
+        f2
+    );
 
     // 2. Remote HTTP .acpkg streaming unpack + free resume check.
     let mut routes = HashMap::new();
@@ -298,18 +351,36 @@ async fn acpkg_v1_verifies_sha256_unpacks_local_and_remote_and_resumes_free() {
     let remote_dest = tempfile::tempdir().unwrap();
     let client = reqwest::Client::new();
     let pkg_url = base.join("game.acpkg").unwrap();
-    let rep1 = unpack_url(&client, &pkg_url, remote_dest.path(), 4, Arc::new(AtomicBool::new(false)))
-        .await
-        .expect("remote acpkg unpack succeeds");
+    let rep1 = unpack_url(
+        &client,
+        &pkg_url,
+        remote_dest.path(),
+        4,
+        Arc::new(AtomicBool::new(false)),
+    )
+    .await
+    .expect("remote acpkg unpack succeeds");
     assert_eq!(rep1.files, 2);
     assert!(rep1.bytes_downloaded > 0);
-    assert_eq!(std::fs::read(remote_dest.path().join("sub/one.txt")).unwrap(), f1);
-    assert_eq!(std::fs::read(remote_dest.path().join("data/two.bin")).unwrap(), f2);
+    assert_eq!(
+        std::fs::read(remote_dest.path().join("sub/one.txt")).unwrap(),
+        f1
+    );
+    assert_eq!(
+        std::fs::read(remote_dest.path().join("data/two.bin")).unwrap(),
+        f2
+    );
 
     // Re-running into same destination skips both verified files with 0 chunk bytes downloaded!
-    let rep2 = unpack_url(&client, &pkg_url, remote_dest.path(), 4, Arc::new(AtomicBool::new(false)))
-        .await
-        .expect("resumed remote acpkg succeeds");
+    let rep2 = unpack_url(
+        &client,
+        &pkg_url,
+        remote_dest.path(),
+        4,
+        Arc::new(AtomicBool::new(false)),
+    )
+    .await
+    .expect("resumed remote acpkg succeeds");
     assert_eq!(rep2.skipped_resumed, 2);
     assert_eq!(rep2.bytes_downloaded, 0);
 

@@ -1498,7 +1498,11 @@ fn download_as(
     subs: &Subs,
     selector: &str,
     stem: &str,
-) -> (blazingdl_tools::video::Progress, Vec<String>, tempfile::TempDir) {
+) -> (
+    blazingdl_tools::video::Progress,
+    Vec<String>,
+    tempfile::TempDir,
+) {
     let tools = tempfile::tempdir().unwrap();
     let out = tempfile::tempdir().unwrap();
     std::fs::write(out.path().join("mode.txt"), mode).unwrap();
@@ -1931,7 +1935,8 @@ fn list_checks(me: &Path) {
     ));
     let (args, _file) = cookies.args(page).unwrap();
     let out =
-        blazingdl_tools::proc::look_up(&exe, &["-J".to_owned()], page, Duration::from_secs(30)).unwrap();
+        blazingdl_tools::proc::look_up(&exe, &["-J".to_owned()], page, Duration::from_secs(30))
+            .unwrap();
     assert!(!out.without_cookies, "no cookies, so nothing to retry");
     let first = ["-J".to_owned()]
         .into_iter()
@@ -3323,7 +3328,10 @@ fn long_name_checks(me: &Path) {
         None,
     );
     assert!(
-        matches!(refused, Err(blazingdl_tools::proc::ProcError::PathTooLong(_))),
+        matches!(
+            refused,
+            Err(blazingdl_tools::proc::ProcError::PathTooLong(_))
+        ),
         "refused at once"
     );
 
@@ -3737,8 +3745,8 @@ fn live_checks(me: &Path) {
     let page = std::env::var("BLAZINGDL_LIVE_PAGE")
         .unwrap_or("https://www.youtube.com/watch?v=jNQXAC9IVRw".into());
     let t = Instant::now();
-    let (looked, out) =
-        blazingdl_tools::resolve::look_up_kept(&real, &page, &Default::default()).expect("looked up");
+    let (looked, out) = blazingdl_tools::resolve::look_up_kept(&real, &page, &Default::default())
+        .expect("looked up");
     assert!(!out.without_cookies);
     let blazingdl_tools::resolve::Looked::Video(v) = looked else {
         panic!("a list")

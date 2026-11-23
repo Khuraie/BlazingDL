@@ -20,7 +20,11 @@ fn read(rt: &tokio::runtime::Runtime, page: &str) -> Option<Declared> {
     let url = reqwest::Url::parse(page).unwrap();
     let opts = blazingdl_engine::Options::default();
     let (at, videos) = rt
-        .block_on(blazingdl_engine::page_videos(url, Default::default(), &opts))
+        .block_on(blazingdl_engine::page_videos(
+            url,
+            Default::default(),
+            &opts,
+        ))
         .unwrap();
     declared::chosen(&videos, &at)
 }
@@ -73,7 +77,9 @@ fn video(looked: &Looked) -> (String, Vec<String>) {
 #[test]
 #[ignore]
 fn the_declared_video_is_looked_up_and_downloaded() {
-    let exe = std::path::PathBuf::from(std::env::var("BLAZINGDL_TEST_YTDLP").expect("BLAZINGDL_TEST_YTDLP"));
+    let exe = std::path::PathBuf::from(
+        std::env::var("BLAZINGDL_TEST_YTDLP").expect("BLAZINGDL_TEST_YTDLP"),
+    );
     let rt = tokio::runtime::Runtime::new().unwrap();
     let lab = rt.block_on(LabServer::start(Config::default())).unwrap();
     // The film is served only with the page as its Referer, as an embed-only video is.

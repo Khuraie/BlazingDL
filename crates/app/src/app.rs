@@ -7,9 +7,9 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use base64::Engine as _;
-use egui::{Pos2, Ui, pos2};
 use blazingdl_engine::state::state_path;
 use blazingdl_engine::{Destination, Download, Options, Request};
+use egui::{Pos2, Ui, pos2};
 use reqwest::header::{AUTHORIZATION, HeaderMap, HeaderValue};
 
 use crate::chrome::{
@@ -1318,8 +1318,6 @@ pub struct App {
     quick_notice: Option<(String, Instant)>,
     /// Live 24h bandwidth schedule & fullscreen game/focus auto-throttle controller.
     focus_ctrl: crate::focusmode::FocusController,
-    /// Completed AntiCompress streaming unpack results from background tasks.
-    unpack_done: Vec<std::sync::mpsc::Receiver<Result<blazingdl_extract::StreamUnpackReport, String>>>,
     /// The node the list was last drawn for (a new one starts at the top).
     list_view: View,
     /// The download Move/Rename's dialog is for (winui::start_pick answers later).
@@ -1831,11 +1829,13 @@ fn add_checksum(
 ) -> Result<Option<blazingdl_engine::verify::Hash>, (&'static str, &'static str)> {
     match cmd.checksum.as_deref() {
         None => Ok(None),
-        Some(text) => blazingdl_engine::verify::Hash::parse(text).map(Some).ok_or((
-            "bad-request",
-            "not a readable checksum (hex MD5, SHA-1, SHA-256, SHA-512 or CRC32, optionally \
+        Some(text) => blazingdl_engine::verify::Hash::parse(text)
+            .map(Some)
+            .ok_or((
+                "bad-request",
+                "not a readable checksum (hex MD5, SHA-1, SHA-256, SHA-512 or CRC32, optionally \
              named \"sha256:…\")",
-        )),
+            )),
     }
 }
 
@@ -2184,7 +2184,6 @@ impl App {
             quick_filter: String::new(),
             quick_notice: None,
             focus_ctrl: Default::default(),
-            unpack_done: Vec::new(),
             all_open,
             unfinished_open,
             finished_open,
@@ -3162,7 +3161,9 @@ impl App {
             let before = std::mem::replace(&mut self.route, route.clone());
             self.route_changed(&before);
         }
-        if matches!(self.route, blazingdl_engine::Route::Down { .. }) || self.adapter_paused.is_empty() {
+        if matches!(self.route, blazingdl_engine::Route::Down { .. })
+            || self.adapter_paused.is_empty()
+        {
             return;
         }
         // Started again once their jobs have ended.
@@ -3232,25 +3233,50 @@ impl App {
                 .unwrap_or_else(|| "unpacked".into());
             let dest_dir = self
                 .settings
-                .category_dir(Category::General, &self.downloads)
+                .category_dir(Category::Compressed, &self.downloads)
                 .join(&folder_name);
-            let (tx, rx) = std::sync::mpsc::channel();
+            let url = url::Url::from_file_path(&pkg_dir)
+                .unwrap_or_else(|()| url::Url::parse("https://local.acpkg/package.acpkg").unwrap());
+            let id = self.push_item(
+                url.clone(),
+                dest_dir.clone(),
+                Category::Compressed,
+                "AntiCompress .acpkg (1× disk · SHA-256)".into(),
+                None,
+                None,
+                Default::default(),
+                "from .acpkg",
+            );
+            let progress = std::sync::Arc::new(blazingdl_extract::UnpackProgress::default());
+            let cancel = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+            let done = std::sync::Arc::new(std::sync::Mutex::new(None));
+            let job = model::UnpackJob {
+                url,
+                dest: dest_dir.clone(),
+                progress: progress.clone(),
+                cancel: cancel.clone(),
+                done: done.clone(),
+            };
+            if let Some(item) = self.item(id) {
+                item.live = Some(Live::new(model::Job::Unpack(job), 0));
+                item.status = Status::Downloading;
+            }
+            self.selection.set(id);
             let ui_ctx = ctx.clone();
-            let dest_clone = dest_dir.clone();
             self.rt.spawn_blocking(move || {
-                let res = blazingdl_extract::stream_unpack::unpack_acpkg_local(
+                let res = blazingdl_extract::stream_unpack::unpack_acpkg_local_with_progress(
                     &pkg_dir,
-                    &dest_clone,
+                    &dest_dir,
                     false,
-                    &std::sync::atomic::AtomicBool::new(false),
+                    &cancel,
+                    Some(&progress),
                 )
                 .map_err(|e| e.to_string());
-                let _ = tx.send(res);
+                *done.lock().unwrap() = Some(res);
                 ui_ctx.request_repaint();
             });
-            self.unpack_done.push(rx);
             self.quick_notice = Some((
-                format!("Unpacking .acpkg → {folder_name}/ (SHA-256 verified)..."),
+                format!("Unpacking .acpkg → {folder_name}/ (1× disk · SHA-256)"),
                 Instant::now(),
             ));
             return;
@@ -3259,9 +3285,8 @@ impl App {
         if blazingdl_engine::metalink::is_metalink_path(&as_path) && as_path.is_file() {
             match std::fs::read_to_string(&as_path)
                 .map_err(|e| e.to_string())
-                .and_then(|xml| {
-                    blazingdl_engine::metalink::parse(&xml).map_err(|e| e.to_string())
-                }) {
+                .and_then(|xml| blazingdl_engine::metalink::parse(&xml).map_err(|e| e.to_string()))
+            {
                 Ok(files) => {
                     let count = files.len();
                     for mf in files {
@@ -3351,14 +3376,12 @@ impl App {
             return;
         }
         // 4. HTTP / HTTPS / FTP URL (optionally accompanied by a pasted checksum hash)
-        let first_url = trimmed
-            .split_whitespace()
-            .find_map(|tok| {
-                let t = tok.trim_matches(|c: char| matches!(c, '<' | '>' | '"' | '\''));
-                url::Url::parse(t)
-                    .ok()
-                    .filter(|u| matches!(u.scheme(), "http" | "https" | "ftp" | "ftps"))
-            });
+        let first_url = trimmed.split_whitespace().find_map(|tok| {
+            let t = tok.trim_matches(|c: char| matches!(c, '<' | '>' | '"' | '\''));
+            url::Url::parse(t)
+                .ok()
+                .filter(|u| matches!(u.scheme(), "http" | "https" | "ftp" | "ftps"))
+        });
         let Some(url) = first_url else {
             self.quick_notice = Some((
                 "Enter an http(s)/ftp URL, magnet:, or path to .meta4 / .nzb".into(),
@@ -3378,8 +3401,8 @@ impl App {
             return;
         }
         // 4b. AntiCompress 1× Disk Stream Unpack for remote `.acpkg` (always) or `.zip`/`.tar.*`
-        // when `stream_unpack` mode is enabled — unpacks straight into a clean folder without ever
-        // writing the compressed archive file to disk.
+        // when `stream_unpack` mode is enabled — runs as a live Transfer Table row with progress,
+        // live speed, and Pause/Cancel support without ever writing the archive file to disk.
         let path_low = url.path().to_ascii_lowercase();
         let is_remote_acpkg = path_low.trim_end_matches('/').ends_with(".acpkg")
             || path_low.ends_with("/manifest.json");
@@ -3390,48 +3413,54 @@ impl App {
             let folder_name = blazingdl_extract::stream_unpack::folder_name_for_url(&url);
             let dest_dir = self
                 .settings
-                .category_dir(Category::General, &self.downloads)
+                .category_dir(Category::Compressed, &self.downloads)
                 .join(&folder_name);
-            let (tx, rx) = std::sync::mpsc::channel();
+            let id = self.push_item(
+                url.clone(),
+                dest_dir.clone(),
+                Category::Compressed,
+                "AntiCompress 1× Disk Stream Unpack".into(),
+                None,
+                None,
+                Default::default(),
+                "from Stream Unpack",
+            );
+            let progress = std::sync::Arc::new(blazingdl_extract::UnpackProgress::default());
+            let cancel = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+            let done = std::sync::Arc::new(std::sync::Mutex::new(None));
+            let job = model::UnpackJob {
+                url: url.clone(),
+                dest: dest_dir.clone(),
+                progress: progress.clone(),
+                cancel: cancel.clone(),
+                done: done.clone(),
+            };
+            if let Some(item) = self.item(id) {
+                item.live = Some(Live::new(model::Job::Unpack(job), 0));
+                item.status = Status::Downloading;
+            }
+            self.selection.set(id);
             let ui_ctx = ctx.clone();
-            let url_clone = url.clone();
-            let dest_clone = dest_dir.clone();
-            let rules = self.settings.automation_rules.clone();
             let conns = (self.settings.max_connections as usize).clamp(1, 8);
             self.rt.spawn(async move {
                 let client = blazingdl_engine::tls::configure(reqwest::Client::builder())
                     .build()
                     .unwrap_or_default();
-                let res = blazingdl_extract::stream_unpack::unpack_url(
+                let res = blazingdl_extract::stream_unpack::unpack_url_with_progress(
                     &client,
-                    &url_clone,
-                    &dest_clone,
+                    &url,
+                    &dest_dir,
                     conns,
-                    std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+                    cancel,
+                    Some(progress),
                 )
                 .await
                 .map_err(|e| e.to_string());
-                if let Ok(ref rep) = res
-                    && !rules.is_empty()
-                {
-                    let info = crate::automation::CompletedInfo {
-                        file_name: folder_name.clone(),
-                        path: rep.dest_dir.clone(),
-                        url: url_clone.to_string(),
-                        size: rep.bytes_written,
-                        category: "Compressed".into(),
-                    };
-                    let _ = crate::automation::execute_rules(&rules, info).await;
-                }
-                let _ = tx.send(res);
+                *done.lock().unwrap() = Some(res);
                 ui_ctx.request_repaint();
             });
-            self.unpack_done.push(rx);
             self.quick_notice = Some((
-                format!(
-                    "Streaming unpack (1× disk) → {}/...",
-                    dest_dir.file_name().unwrap_or_default().to_string_lossy()
-                ),
+                format!("Streaming unpack (1× disk) → {folder_name}/"),
                 Instant::now(),
             ));
             return;
@@ -4015,7 +4044,8 @@ impl App {
                     .find(|i| {
                         i.status == Status::Complete
                             && crate::extractq::archive_name(&i.file_name)
-                            && blazingdl_extract::volume_key(&i.file_name).is_none_or(|v| v.is_first())
+                            && blazingdl_extract::volume_key(&i.file_name)
+                                .is_none_or(|v| v.is_first())
                     })
                     .or(self.items.last())
                     .map(|i| i.id);
@@ -5386,8 +5416,8 @@ impl App {
     fn tray(&mut self, ctx: &egui::Context) {
         // Off-screen test copies have none, but for BLAZINGDL_TEST_TRAY=1 (#226's check: a start with
         // the session shows the icon, and no window).
-        let wanted =
-            !crate::offscreen() || std::env::var_os("BLAZINGDL_TEST_TRAY").is_some_and(|v| v == "1");
+        let wanted = !crate::offscreen()
+            || std::env::var_os("BLAZINGDL_TEST_TRAY").is_some_and(|v| v == "1");
         if self.tray.is_none() && self.tray_limiter.is_none() && wanted {
             // Linux: made beside the window, which never waits for the session bus (#828); until
             // it is, the window behaves as with no tray host.
@@ -6327,7 +6357,10 @@ impl App {
     /// Download video from a page, opened for a page (looked up at once) or from the menu: Save
     /// to is the Video category's folder, the Music category's while a sound-only choice is
     /// chosen (#611; not when the user deleted Music).
-    fn video_dialog(&self, page: Option<(&str, blazingdl_ipc::Command)>) -> crate::videodlg::VideoDialog {
+    fn video_dialog(
+        &self,
+        page: Option<(&str, blazingdl_ipc::Command)>,
+    ) -> crate::videodlg::VideoDialog {
         let dir = self.settings.category_dir(Category::Video, &self.downloads);
         let music = (!Category::Music.deleted())
             .then(|| self.settings.category_dir(Category::Music, &self.downloads));
@@ -6571,11 +6604,15 @@ impl App {
         let retry = self.heal_retry.contains(&id);
         let tool = tools.as_deref().and_then(|d| {
             retry
-                .then(|| blazingdl_tools::autoupdate::ready(d, blazingdl_tools::autoupdate::Tool::YtDlp))
+                .then(|| {
+                    blazingdl_tools::autoupdate::ready(d, blazingdl_tools::autoupdate::Tool::YtDlp)
+                })
                 .flatten()
                 .or_else(|| blazingdl_tools::installed(d))
         });
-        let ffmpeg = tools.as_deref().and_then(blazingdl_tools::ffmpeg::installed);
+        let ffmpeg = tools
+            .as_deref()
+            .and_then(blazingdl_tools::ffmpeg::installed);
         let rate = self.helper_starts(id);
         // The engine downloads the streams with what a file from the page gets (#769): Options'
         // connections, proxy, network adapter and DNS, the limit for all downloads (shared with
@@ -6655,9 +6692,9 @@ impl App {
                 item.error = Some(match e {
                     // Its files would pass the path limits (#1102): said in the interface's
                     // language, with the video's path.
-                    blazingdl_tools::proc::ProcError::PathTooLong(_) => {
-                        crate::errors::describe(&blazingdl_engine::Error::PathTooLong(item.dest.clone()))
-                    }
+                    blazingdl_tools::proc::ProcError::PathTooLong(_) => crate::errors::describe(
+                        &blazingdl_engine::Error::PathTooLong(item.dest.clone()),
+                    ),
                     e => e.to_string(),
                 });
             }
@@ -6708,7 +6745,12 @@ impl App {
         let retry = self.heal_retry.contains(&id);
         let tool = blazingdl_tools::tools_dir().as_deref().and_then(|d| {
             retry
-                .then(|| blazingdl_tools::autoupdate::ready(d, blazingdl_tools::autoupdate::Tool::GalleryDl))
+                .then(|| {
+                    blazingdl_tools::autoupdate::ready(
+                        d,
+                        blazingdl_tools::autoupdate::Tool::GalleryDl,
+                    )
+                })
                 .flatten()
                 .or_else(|| blazingdl_tools::gallery::installed(d))
         });
@@ -7417,7 +7459,9 @@ impl App {
                                 opts: crate::settings::own_net(),
                             },
                         };
-                        blazingdl_torrent::Source::File(crate::torrents::fetch_torrent(remote).await?)
+                        blazingdl_torrent::Source::File(
+                            crate::torrents::fetch_torrent(remote).await?,
+                        )
                     }
                 };
                 let t = host.session(known).await?;
@@ -8160,7 +8204,8 @@ impl App {
                 _ => {}
             }
         }
-        let name = blazingdl_engine::naming::sanitize(&blazingdl_engine::naming::file_name(None, &url));
+        let name =
+            blazingdl_engine::naming::sanitize(&blazingdl_engine::naming::file_name(None, &url));
         let category = category.unwrap_or_else(|| Category::of(&name));
         let dir = self.settings.category_dir(category, &self.downloads);
         // Numbered on as it starts if the name is taken then (#743): no disk here.
@@ -8686,7 +8731,9 @@ impl App {
                     item.note(crate::i18n::fmt(note, &[("folder", &folder)]));
                 }
                 dialogs::DraggedOut::MovedAway => {
-                    tracing::info!("drag out: download {id}'s file moved where BlazingDL can't follow");
+                    tracing::info!(
+                        "drag out: download {id}'s file moved where BlazingDL can't follow"
+                    );
                     item.moved_away = true;
                     item.note(match dragged_from {
                         DraggedFrom::Complete => crate::i18n::t(
@@ -9431,7 +9478,8 @@ impl App {
                     let (tx, rx) = std::sync::mpsc::channel();
                     let wake = ctx.clone();
                     crate::launch::spawn("refetch", move || {
-                        let _ = tx.send(blazingdl_engine::repair::reopen(&state, &ranges, modified));
+                        let _ =
+                            tx.send(blazingdl_engine::repair::reopen(&state, &ranges, modified));
                         wake.request_repaint();
                     });
                     self.refetching.push((id, rx));
@@ -9993,12 +10041,7 @@ impl App {
                 I("&Video downloads", Cmd::HelpPage("video.md"), true, false),
                 I("&Keyboard shortcuts", Cmd::Shortcuts, true, false),
                 Sep,
-                I(
-                    "BlazingDL &Home Page",
-                    Cmd::HelpPage(""),
-                    true,
-                    false,
-                ),
+                I("BlazingDL &Home Page", Cmd::HelpPage(""), true, false),
                 I("&Report a problem", Cmd::ReportProblem, true, false),
                 Sep,
                 I("Check for &updates...", Cmd::CheckUpdates, true, false),
@@ -10275,7 +10318,9 @@ impl App {
             // i18n: View → Draw with: a greyed note under why a graphics system ("it": Direct3D, Vulkan, Metal or OpenGL) doesn't draw BlazingDL; {date}: the day that was found; {retry}: the day BlazingDL tries it again
             (false, Some(_), false) => t("Since {date}: BlazingDL tries it again on {retry}"),
             // i18n: View → Draw with: a greyed note under why a graphics system ("it": Direct3D, Vulkan, Metal or OpenGL) doesn't draw BlazingDL; {date}: the day that was found; BlazingDL tries it again once the graphics driver is updated
-            (false, None, true) => t("Since {date}: BlazingDL tries it again after a driver update"),
+            (false, None, true) => {
+                t("Since {date}: BlazingDL tries it again after a driver update")
+            }
             // i18n: View → Draw with: a greyed note under why a graphics system doesn't draw BlazingDL; {date}: the day that was found
             (false, None, false) => t("Since {date}"),
         };
@@ -11327,36 +11372,10 @@ impl App {
             None => {}
         }
         if saville {
-            // Poll completed AntiCompress streaming unpack jobs for footer feedback.
-            let mut finished_msgs = Vec::new();
-            self.unpack_done.retain(|rx| match rx.try_recv() {
-                Ok(Ok(rep)) => {
-                    let folder = rep
-                        .dest_dir
-                        .file_name()
-                        .unwrap_or_default()
-                        .to_string_lossy();
-                    finished_msgs.push(format!(
-                        "Unpacked {} file(s) → {folder}/ (1× disk, {})",
-                        rep.files + rep.skipped_resumed,
-                        blazingdl_engine::disk::human(rep.bytes_written)
-                    ));
-                    false
-                }
-                Ok(Err(e)) => {
-                    finished_msgs.push(format!("Stream unpack failed: {e}"));
-                    false
-                }
-                Err(std::sync::mpsc::TryRecvError::Empty) => true,
-                Err(std::sync::mpsc::TryRecvError::Disconnected) => false,
-            });
-            if let Some(msg) = finished_msgs.pop() {
-                self.quick_notice = Some((msg, Instant::now()));
-            }
-            let focus_add = free
-                && ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::L));
-            let focus_flt = free
-                && ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::F));
+            let focus_add =
+                free && ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::L));
+            let focus_flt =
+                free && ctx.input(|i| i.modifiers.command && i.key_pressed(egui::Key::F));
             let bonded_n = match &self.route {
                 blazingdl_engine::Route::Aggregate(bs) => bs.len(),
                 _ => 0,
@@ -11415,7 +11434,7 @@ impl App {
             let rows = self.tree_rows();
             let tree: Vec<TreeRow<'_>> = rows.iter().map(|(r, ..)| r.clone()).collect();
             let pad_l = if saville { 0.0 } else { 6.0 };
-            let gap_w = if saville { 4.0 } else { 4.0 };
+            let gap_w = 4.0;
             let right = o.x + pad_l + cat_w;
             let split_top = o.y + chrome::MENU_H + pane_top;
             let split_bot = o.y + h - strip_h - if saville { 0.0 } else { 5.0 };
@@ -12310,9 +12329,9 @@ impl App {
         for file in lists {
             self.import_file(std::path::Path::new(&file));
         }
-        let (links, other): (Vec<String>, Vec<String>) = items
-            .into_iter()
-            .partition(|s| url::Url::parse(s.trim()).is_ok_and(|u| blazingdl_engine::supported(&u)));
+        let (links, other): (Vec<String>, Vec<String>) = items.into_iter().partition(|s| {
+            url::Url::parse(s.trim()).is_ok_and(|u| blazingdl_engine::supported(&u))
+        });
         if links.len() > 1 {
             self.show_window(ctx);
             let found = links
@@ -12693,25 +12712,26 @@ impl App {
             let slot: std::sync::Arc<std::sync::Mutex<Option<_>>> = Default::default();
             let (out, ctx) = (slot.clone(), ctx.clone());
             self.rt.spawn(async move {
-                let found = match blazingdl_engine::page_links(url, parts.headers, &parts.opts).await {
-                    Ok((at, links)) => {
-                        tracing::info!("link grabber: {} links on a page", links.len());
-                        links
-                            .into_iter()
-                            .map(|u| crate::transfer::Imported {
-                                url: u.into(),
-                                referer: Some(at.to_string()),
-                                user_agent: d.user_agent.clone(),
-                                private: d.private,
-                                ..Default::default()
-                            })
-                            .collect()
-                    }
-                    Err(e) => {
-                        tracing::info!("link grabber: a page couldn't be read: {e}");
-                        Vec::new()
-                    }
-                };
+                let found =
+                    match blazingdl_engine::page_links(url, parts.headers, &parts.opts).await {
+                        Ok((at, links)) => {
+                            tracing::info!("link grabber: {} links on a page", links.len());
+                            links
+                                .into_iter()
+                                .map(|u| crate::transfer::Imported {
+                                    url: u.into(),
+                                    referer: Some(at.to_string()),
+                                    user_agent: d.user_agent.clone(),
+                                    private: d.private,
+                                    ..Default::default()
+                                })
+                                .collect()
+                        }
+                        Err(e) => {
+                            tracing::info!("link grabber: a page couldn't be read: {e}");
+                            Vec::new()
+                        }
+                    };
                 *out.lock().unwrap() = Some(found);
                 ctx.request_repaint();
             });
@@ -14758,9 +14778,15 @@ mod same_name_tests {
         let state = blazingdl_engine::state::state_path(&at);
         let mut items = [waiting(1), waiting(2)];
         let url = items[0].url.clone();
-        blazingdl_engine::state::ResumeState::new(url.clone(), url, at.clone(), 9, Default::default())
-            .write(&state)
-            .unwrap();
+        blazingdl_engine::state::ResumeState::new(
+            url.clone(),
+            url,
+            at.clone(),
+            9,
+            Default::default(),
+        )
+        .write(&state)
+        .unwrap();
         assert_eq!(place_to_take(&items[0], &items), None);
         assert_eq!(name(place_to_take(&items[1], &items)).as_deref(), free);
         items[0].status = Status::Stopped;

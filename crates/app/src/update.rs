@@ -187,7 +187,8 @@ fn apply(install: Install, file: &Path, cancelled: &AtomicBool) -> Result<Next, 
             blazingdl_tools::update::unzip(file, &out).map_err(|e| e.to_string())?;
             let new = blazingdl_tools::update::single_folder(&out);
             // A portable copy's list and settings stay where they are.
-            blazingdl_tools::update::replace_files(&new, &dir, &["data"]).map_err(|e| e.to_string())?;
+            blazingdl_tools::update::replace_files(&new, &dir, &["data"])
+                .map_err(|e| e.to_string())?;
             restart(&exe)
         }
         Install::TarGz => {

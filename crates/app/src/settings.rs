@@ -927,11 +927,13 @@ pub fn remember(list: &mut Vec<String>, value: &str) {
 /// 11's, before #668) or nothing is the automatic one (empty).
 fn automatic_agent<'de, D: serde::Deserializer<'de>>(d: D) -> Result<String, D::Error> {
     let saved = String::deserialize(d)?;
-    Ok(if saved.trim() == blazingdl_engine::agent::IE11_USER_AGENT {
-        String::new()
-    } else {
-        saved
-    })
+    Ok(
+        if saved.trim() == blazingdl_engine::agent::IE11_USER_AGENT {
+            String::new()
+        } else {
+            saved
+        },
+    )
 }
 
 impl Settings {
@@ -1016,7 +1018,10 @@ impl Settings {
     /// The torrent engine as Torrent settings say (#40), its data in `state_dir`. None when they
     /// say to use the proxy and Proxy / Socks has no SOCKS5 one: torrents then don't start, never
     /// going around the proxy unasked.
-    pub fn torrent_config(&self, state_dir: std::path::PathBuf) -> Option<blazingdl_torrent::Config> {
+    pub fn torrent_config(
+        &self,
+        state_dir: std::path::PathBuf,
+    ) -> Option<blazingdl_torrent::Config> {
         let proxy = match (self.torrent_proxy, self.socks5_proxy()) {
             (true, None) => return None,
             (true, proxy) => proxy,
@@ -1362,7 +1367,8 @@ pub fn dns_choice(
 /// settings in a process without them (the crash monitor).
 static OWN_PROXY: std::sync::RwLock<Option<blazingdl_engine::Proxy>> = std::sync::RwLock::new(None);
 /// The same for Options → Connection → DNS ([`share_dns`]).
-static OWN_DNS: std::sync::RwLock<Option<blazingdl_engine::DnsChoice>> = std::sync::RwLock::new(None);
+static OWN_DNS: std::sync::RwLock<Option<blazingdl_engine::DnsChoice>> =
+    std::sync::RwLock::new(None);
 
 /// Keep [`own_net`] on the settings' proxy (cheap when it didn't change).
 pub fn share_proxy(proxy: blazingdl_engine::Proxy) {
@@ -1857,7 +1863,10 @@ mod tests {
             blazingdl_cli::TorrentProxy::Through("socks5://127.0.0.1:1080".into())
         );
         s.proxy_host = "http://127.0.0.1".into();
-        assert_eq!(s.cli_net().torrent_proxy, blazingdl_cli::TorrentProxy::Missing);
+        assert_eq!(
+            s.cli_net().torrent_proxy,
+            blazingdl_cli::TorrentProxy::Missing
+        );
         // No settings yet: the system's proxy, as the app has it.
         assert_eq!(
             Settings::default().cli_net().proxy,

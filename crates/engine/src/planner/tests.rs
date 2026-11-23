@@ -442,7 +442,7 @@ fn preempt_slow_tail_reassigns_tail_from_slow_worker() {
     assert_eq!((a0.from, a0.to), (0, 1_000_000));
     let a1 = p.assign(1, None).unwrap();
     let split = a1.from;
-    assert!(split > 0 && split < 1_000_000 && split % 4096 == 0);
+    assert!(split > 0 && split < 1_000_000 && split.is_multiple_of(4096));
     // Advance Worker 1 to complete its tail, leaving Worker 0 stalled near the start.
     let w1_len = 1_000_000 - split;
     assert!(matches!(p.claim(1, split, w1_len), Claim::Granted(n) if n == w1_len));

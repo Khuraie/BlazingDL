@@ -39,7 +39,8 @@ pub enum ProcError {
 
 /// Options → Proxy / Socks → Network adapter (#35) for the helpers and the media-server checks;
 /// the app shares it as it changes ([`set_route`]).
-static ROUTE: std::sync::RwLock<blazingdl_engine::Route> = std::sync::RwLock::new(blazingdl_engine::Route::Any);
+static ROUTE: std::sync::RwLock<blazingdl_engine::Route> =
+    std::sync::RwLock::new(blazingdl_engine::Route::Any);
 /// Options → Connection → DNS (#36): what the relay looks the helpers' servers up with.
 static DNS: std::sync::RwLock<Option<blazingdl_engine::DnsChoice>> = std::sync::RwLock::new(None);
 /// The relay the helpers go through while an adapter is chosen, started when first needed.
@@ -591,7 +592,9 @@ fn through_adapter(
     match route() {
         // No adapter: Options -> Proxy / Socks (#363).
         blazingdl_engine::Route::Any => Ok(through_proxy(cmd, url)),
-        blazingdl_engine::Route::Down { label } => Err(blazingdl_engine::NetError::Down { label }.into()),
+        blazingdl_engine::Route::Down { label } => {
+            Err(blazingdl_engine::NetError::Down { label }.into())
+        }
         blazingdl_engine::Route::Bound(_) | blazingdl_engine::Route::Aggregate(_) => {
             let url = relay()?.url();
             for var in [

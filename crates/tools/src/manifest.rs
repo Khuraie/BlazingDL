@@ -701,7 +701,11 @@ fn ties_are_harmless(formats: &[Format]) -> bool {
 /// its page as the Referer, its User-Agent, its Cookie header) through `opts` (Options' proxy,
 /// DNS and network adapter, as BlazingDL's own requests). None whenever the stream isn't one this
 /// reads exactly as yt-dlp does, or anything goes wrong: within [`BUDGET`] for both requests.
-pub async fn fetch(url: &str, from: &FromBrowser, opts: &blazingdl_engine::Options) -> Option<Video> {
+pub async fn fetch(
+    url: &str,
+    from: &FromBrowser,
+    opts: &blazingdl_engine::Options,
+) -> Option<Video> {
     fetch_within(url, from, opts, BUDGET).await
 }
 

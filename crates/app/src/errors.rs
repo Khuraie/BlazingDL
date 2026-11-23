@@ -178,7 +178,9 @@ fn certificate(problem: CertProblem) -> &'static str {
         ),
         CertProblem::Revoked => {
             // i18n: why a download failed: the issuer of the site's security certificate took it back
-            t("the site's security certificate was revoked by its issuer, so BlazingDL won't trust it")
+            t(
+                "the site's security certificate was revoked by its issuer, so BlazingDL won't trust it",
+            )
         }
         // i18n: why a download failed: the site's security certificate is made for other uses than a website (its "extended key usage" leaves out web servers)
         CertProblem::NotForWebsites => t(
@@ -211,9 +213,9 @@ pub fn service(service: &str, fault: &blazingdl_engine::ServiceFault) -> String 
         // i18n: a debrid service's error: the account's limit (traffic) for this host is used up
         F::LimitReached => t("{service}: your limit for this file host is used up for now"),
         // i18n: a debrid service's error: too many downloads at once through the account
-        F::TooManyActive => {
-            t("{service}: too many downloads at once through your account; BlazingDL will try again")
-        }
+        F::TooManyActive => t(
+            "{service}: too many downloads at once through your account; BlazingDL will try again",
+        ),
         // i18n: a debrid service's error: it refuses this computer's address (a VPN or a server address)
         F::IpRefused => t("{service} refuses this connection (a VPN or server address?)"),
         // i18n: a debrid service's error: the file is gone from its host
@@ -223,7 +225,9 @@ pub fn service(service: &str, fault: &blazingdl_engine::ServiceFault) -> String 
         // i18n: a debrid service's error: the file has a password
         F::PasswordNeeded => t("{service}: this file is password-protected"),
         // i18n: a debrid service's error: too many requests; BlazingDL waits and retries
-        F::TooManyRequests(_) => t("{service} asks to slow down; BlazingDL will try again in a minute"),
+        F::TooManyRequests(_) => {
+            t("{service} asks to slow down; BlazingDL will try again in a minute")
+        }
         // i18n: a debrid service's error: it isn't answering
         F::ServiceDown => t("{service} is not responding; try again later"),
         // i18n: a debrid service's error: it can't get the torrent sent to it (nobody shares it any more, or its magnet link can't be read)

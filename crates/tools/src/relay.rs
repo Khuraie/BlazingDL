@@ -197,7 +197,12 @@ async fn open(route: &Route, dns: &DnsChoice, host: &str, port: u16) -> Result<T
     let mut why = format!("{host} has no address");
     for ip in ips {
         let addr = SocketAddr::new(ip, port);
-        match tokio::time::timeout(CONNECT_TIME, blazingdl_engine::net::tcp_connect(route, addr)).await {
+        match tokio::time::timeout(
+            CONNECT_TIME,
+            blazingdl_engine::net::tcp_connect(route, addr),
+        )
+        .await
+        {
             Ok(Ok(s)) => return Ok(s),
             Ok(Err(e)) => why = e.to_string(),
             Err(_) => why = format!("{addr} didn't answer"),

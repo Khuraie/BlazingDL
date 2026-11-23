@@ -2919,7 +2919,10 @@ pub mod open_events {
             match blazingdl_ipc::parse_args(std::slice::from_ref(&item)) {
                 Some(cmd) => {
                     tracing::info!("opened from the system: {item}");
-                    let _ = self.ivars().tx.send(blazingdl_ipc::Incoming { cmd, reply: None });
+                    let _ = self
+                        .ivars()
+                        .tx
+                        .send(blazingdl_ipc::Incoming { cmd, reply: None });
                     (self.ivars().wake)();
                 }
                 None => tracing::info!("opened from the system, not a torrent: {item}"),
@@ -4393,8 +4396,13 @@ mod tests {
 
         let fine = choose_window_system(true, true, Pick::Auto, CARED, |_| true);
         assert!(!fine.wayland && fine.x11_over_wayland && fine.missing.is_empty());
-        let asked =
-            choose_window_system(true, true, Pick::Wayland("BLAZINGDL_WAYLAND=1"), CARED, |_| true);
+        let asked = choose_window_system(
+            true,
+            true,
+            Pick::Wayland("BLAZINGDL_WAYLAND=1"),
+            CARED,
+            |_| true,
+        );
         assert!(asked.wayland && !asked.x11_over_wayland && asked.x11_missing.is_empty());
 
         // Nothing loads: on Wayland, its own libraries are named.
@@ -4994,8 +5002,7 @@ mod host_copy_tests {
             std::fs::create_dir_all(d).unwrap();
         }
         let write = |dir: &Path, path: &Path| {
-            let json =
-                serde_json::json!({ "name": "com.blazingdl.host", "path": path });
+            let json = serde_json::json!({ "name": "com.blazingdl.host", "path": path });
             std::fs::write(dir.join(MANIFEST), json.to_string()).unwrap();
         };
         let dirs = || vec![(a.clone(), Family::Chromium), (b.clone(), Family::Gecko)];
@@ -5670,10 +5677,7 @@ pub fn keep_awake(reason: Option<&str>) -> bool {
             "/org/freedesktop/login1",
             "org.freedesktop.login1.Manager",
         )?;
-        logind.call(
-            "Inhibit",
-            &("sleep", "BlazingDL", reason, "block"),
-        )
+        logind.call("Inhibit", &("sleep", "BlazingDL", reason, "block"))
     };
     match take() {
         Ok(fd) => {

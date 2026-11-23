@@ -1059,7 +1059,9 @@ fn verdict(
     rules.accepts(&m.url, &name, browser, page)?;
     // A .torrent only its type tells (a name of another listed type), as the app's Add torrent
     // would take it (#1058).
-    if !rules.takes_torrents() && blazingdl_ipc::capture::is_torrent(&m.url, &name, m.mime.as_deref()) {
+    if !rules.takes_torrents()
+        && blazingdl_ipc::capture::is_torrent(&m.url, &name, m.mime.as_deref())
+    {
         return Err(blazingdl_ipc::capture::Declined::Torrents);
     }
     if rules.too_small(m.size) {
@@ -1266,9 +1268,7 @@ fn deliver(cmd: &blazingdl_ipc::Command) -> Result<(), Undelivered> {
             break;
         }
     }
-    Err(Undelivered::NotRunning(
-        "BlazingDL did not start".into(),
-    ))
+    Err(Undelivered::NotRunning("BlazingDL did not start".into()))
 }
 
 /// Start the app outside the browser's reach: browsers end a host's whole process tree (on
@@ -1334,7 +1334,10 @@ fn serve() -> io::Result<()> {
             // The rules as saved now: a change in Options applies to the next download.
             Ok(m) => {
                 // This browser has the extension: the app stops offering it (extension.rs).
-                blazingdl_ipc::extension::mark_seen(browser(&m), m.v.as_deref().unwrap_or_default());
+                blazingdl_ipc::extension::mark_seen(
+                    browser(&m),
+                    m.v.as_deref().unwrap_or_default(),
+                );
                 // The popup's list asks every second while it is open (#1496) and needs no rules:
                 // not read for it (they are in downloads.json, with the whole list).
                 let rules = if m.recent.is_some() || m.download_act.is_some() {
@@ -1518,7 +1521,8 @@ fn repair() -> Result<(), String> {
     for (key, family) in WINDOWS_HOST_KEYS {
         let entry = format!(r"{key}\{HOST_NAME}");
         let user = holder(false, &entry);
-        match blazingdl_ipc::browsers::windows_repair(user.as_ref(), holder(true, &entry).as_ref()) {
+        match blazingdl_ipc::browsers::windows_repair(user.as_ref(), holder(true, &entry).as_ref())
+        {
             Repair::Keep => continue,
             Repair::Take => {
                 let manifest = own_manifest(family)?;
@@ -2649,7 +2653,10 @@ mod tests {
             user_agent: Some(ua.into()),
             ..Default::default()
         };
-        assert_eq!(verdict(&m, &rules), Err(blazingdl_ipc::capture::Declined::Site));
+        assert_eq!(
+            verdict(&m, &rules),
+            Err(blazingdl_ipc::capture::Declined::Site)
+        );
         m.final_url = Some("https://cdn.example.com/a.zip".into());
         assert_eq!(verdict(&m, &rules), Ok(()));
         // #1049: the page it came from (the referrer) on an excluded site leaves it to the
@@ -2659,7 +2666,10 @@ mod tests {
         m.final_url = None;
         m.url = "https://cdn.files.test/a.zip".into();
         m.referrer = Some("https://www.example.org/downloads".into());
-        assert_eq!(verdict(&m, &rules), Err(blazingdl_ipc::capture::Declined::Site));
+        assert_eq!(
+            verdict(&m, &rules),
+            Err(blazingdl_ipc::capture::Declined::Site)
+        );
         m.explicit = true;
         assert_eq!(
             verdict(&m, &rules),
@@ -3079,10 +3089,7 @@ mod tests {
         assert_eq!(c.referer.as_deref(), Some("https://x/"));
         assert_eq!(c.cookies.as_deref(), Some("a=1"));
         assert_eq!(c.user_agent.as_deref(), Some("UA"));
-        assert_eq!(
-            c.name, None,
-            "empty filename means: let BlazingDL decide"
-        );
+        assert_eq!(c.name, None, "empty filename means: let BlazingDL decide");
         assert!(!c.later && !c.silent);
         assert_eq!((c.proxy, c.proxy_pac, c.proxy_login), (None, None, false));
         assert_eq!(c.video_title, None);

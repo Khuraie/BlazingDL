@@ -39,6 +39,15 @@ pub struct StreamUnpackReport {
     pub skipped_resumed: u64,
 }
 
+/// Live progress counters shared between a streaming unpack task and the UI transfer row.
+#[derive(Default, Debug)]
+pub struct UnpackProgress {
+    pub total_bytes: AtomicU64,
+    pub done_bytes: AtomicU64,
+    pub files_total: AtomicU64,
+    pub files_done: AtomicU64,
+}
+
 #[derive(Debug)]
 pub enum StreamUnpackError {
     Io(io::Error),
@@ -178,7 +187,8 @@ impl AcManifest {
         if index + 1 < self.chunks.len() {
             self.chunk_size
         } else {
-            self.total_size.saturating_sub(index as u64 * self.chunk_size)
+            self.total_size
+                .saturating_sub(index as u64 * self.chunk_size)
         }
     }
 }
@@ -303,8 +313,9 @@ impl AcAssembler {
         let mut skip_mask = vec![false; files.len()];
         let mut skipped_resumed = 0u64;
         for (i, entry) in files.iter().enumerate() {
-            let rel = safe::rel_path(&entry.path, 64)
-                .map_err(|why| StreamUnpackError::BadArchive(format!("unsafe path {}: {why}", entry.path)))?;
+            let rel = safe::rel_path(&entry.path, 64).map_err(|why| {
+                StreamUnpackError::BadArchive(format!("unsafe path {}: {why}", entry.path))
+            })?;
             let final_path = dest_dir.join(&rel);
             if verify_existing_file(&final_path, entry.size, &entry.sha256) {
                 skip_mask[i] = true;
@@ -412,7 +423,8 @@ impl AcAssembler {
             let take_start = cur_pos.max(chunk_offset);
             let take_end = file_end.min(chunk_end);
             if take_end > take_start {
-                let slice = &data[(take_start - chunk_offset) as usize..(take_end - chunk_offset) as usize];
+                let slice =
+                    &data[(take_start - chunk_offset) as usize..(take_end - chunk_offset) as usize];
                 if let Some((_, _, f, hasher)) = self.active_tmp.as_mut() {
                     f.write_all(slice)?;
                     hasher.update(slice);
@@ -470,6 +482,17 @@ pub fn unpack_acpkg_local(
     delete_chunks: bool,
     cancel: &AtomicBool,
 ) -> Result<StreamUnpackReport, StreamUnpackError> {
+    unpack_acpkg_local_with_progress(pkg_path, dest_dir, delete_chunks, cancel, None)
+}
+
+/// [`unpack_acpkg_local`] with optional live progress counters for UI display.
+pub fn unpack_acpkg_local_with_progress(
+    pkg_path: &Path,
+    dest_dir: &Path,
+    delete_chunks: bool,
+    cancel: &AtomicBool,
+    progress: Option<&UnpackProgress>,
+) -> Result<StreamUnpackReport, StreamUnpackError> {
     let pkg_dir = if pkg_path.is_file() {
         pkg_path
             .parent()
@@ -480,6 +503,12 @@ pub fn unpack_acpkg_local(
     let manifest_text = fs::read_to_string(pkg_dir.join(ACPKG_MANIFEST_NAME))?;
     let manifest = parse_acpkg_manifest(&manifest_text)?;
     let mut asm = AcAssembler::new(dest_dir, manifest.files.clone())?;
+    if let Some(p) = progress {
+        p.total_bytes.store(manifest.total_size, Ordering::Relaxed);
+        p.files_total
+            .store(manifest.files.len() as u64, Ordering::Relaxed);
+        p.files_done.store(asm.skipped_resumed, Ordering::Relaxed);
+    }
     let needed = asm.needed_chunk_indices(manifest.chunk_size, manifest.chunks.len());
     asm.finish_zero_byte_files()?;
 
@@ -511,6 +540,11 @@ pub fn unpack_acpkg_local(
             )));
         }
         asm.feed_chunk(chunk.index as u64 * manifest.chunk_size, &raw)?;
+        if let Some(p) = progress {
+            p.done_bytes.store(asm.bytes_written, Ordering::Relaxed);
+            p.files_done
+                .store(asm.files_done + asm.skipped_resumed, Ordering::Relaxed);
+        }
         if delete_chunks {
             let _ = fs::remove_file(&cpath);
         }
@@ -526,6 +560,7 @@ pub async fn unpack_acpkg_url(
     dest_dir: &Path,
     concurrency: usize,
     cancel: Arc<AtomicBool>,
+    progress: Option<Arc<UnpackProgress>>,
 ) -> Result<StreamUnpackReport, StreamUnpackError> {
     let (base_url, manifest_url) = if url.path().to_ascii_lowercase().ends_with("/manifest.json") {
         let mut base = url.clone();
@@ -561,6 +596,12 @@ pub async fn unpack_acpkg_url(
         .map_err(|e| StreamUnpackError::Http(e.to_string()))?;
     let manifest = parse_acpkg_manifest(&text)?;
     let mut asm = AcAssembler::new(dest_dir, manifest.files.clone())?;
+    if let Some(p) = &progress {
+        p.total_bytes.store(manifest.total_size, Ordering::Relaxed);
+        p.files_total
+            .store(manifest.files.len() as u64, Ordering::Relaxed);
+        p.files_done.store(asm.skipped_resumed, Ordering::Relaxed);
+    }
     let needed = asm.needed_chunk_indices(manifest.chunk_size, manifest.chunks.len());
     asm.finish_zero_byte_files()?;
 
@@ -625,6 +666,11 @@ pub async fn unpack_acpkg_url(
     while let Some(res) = stream.next().await {
         let (idx, raw) = res?;
         asm.feed_chunk(idx as u64 * manifest.chunk_size, &raw)?;
+        if let Some(p) = &progress {
+            p.done_bytes.store(asm.bytes_written, Ordering::Relaxed);
+            p.files_done
+                .store(asm.files_done + asm.skipped_resumed, Ordering::Relaxed);
+        }
     }
 
     Ok(asm.report(downloaded.load(Ordering::Relaxed)))
@@ -813,8 +859,9 @@ fn unpack_zip_entry_payload(
     payload: &[u8],
     dest_dir: &Path,
 ) -> Result<u64, StreamUnpackError> {
-    let rel = safe::rel_path(&entry.name, 64)
-        .map_err(|w| StreamUnpackError::BadArchive(format!("unsafe ZIP path {}: {w}", entry.name)))?;
+    let rel = safe::rel_path(&entry.name, 64).map_err(|w| {
+        StreamUnpackError::BadArchive(format!("unsafe ZIP path {}: {w}", entry.name))
+    })?;
     let dst = dest_dir.join(rel);
     if let Some(p) = dst.parent() {
         fs::create_dir_all(p)?;
@@ -889,6 +936,7 @@ pub async fn unpack_zip_url(
     dest_dir: &Path,
     concurrency: usize,
     cancel: Arc<AtomicBool>,
+    progress: Option<Arc<UnpackProgress>>,
 ) -> Result<StreamUnpackReport, StreamUnpackError> {
     fs::create_dir_all(dest_dir)?;
 
@@ -950,6 +998,8 @@ pub async fn unpack_zip_url(
     };
 
     let entries = parse_central_directory(&cd_bytes)?;
+    let total_uncomp: u64 = entries.iter().map(|e| e.uncomp_size).sum();
+    let total_files = entries.len() as u64;
     let resume_path = dest_dir.join(RESUME_FILE_NAME);
     let mut resume = fs::read_to_string(&resume_path)
         .ok()
@@ -962,6 +1012,7 @@ pub async fn unpack_zip_url(
 
     let mut pending = Vec::new();
     let mut skipped_resumed = 0u64;
+    let mut already_bytes = 0u64;
     for entry in entries {
         if resume.completed.contains(&entry.name) {
             let ok = safe::rel_path(&entry.name, 64)
@@ -970,11 +1021,20 @@ pub async fn unpack_zip_url(
                 .is_some_and(|m| m.len() == entry.uncomp_size);
             if ok {
                 skipped_resumed += 1;
+                already_bytes += entry.uncomp_size;
                 continue;
             }
             resume.completed.remove(&entry.name);
         }
         pending.push(entry);
+    }
+
+    if let Some(p) = &progress {
+        p.total_bytes
+            .store(total_uncomp.max(total_size), Ordering::Relaxed);
+        p.done_bytes.store(already_bytes, Ordering::Relaxed);
+        p.files_total.store(total_files, Ordering::Relaxed);
+        p.files_done.store(skipped_resumed, Ordering::Relaxed);
     }
 
     let resume_state = Arc::new(Mutex::new(resume));
@@ -992,14 +1052,16 @@ pub async fn unpack_zip_url(
         let bytes_written = bytes_written.clone();
         let files_done = files_done.clone();
         let cancel = cancel.clone();
+        let progress = progress.clone();
         async move {
             if cancel.load(Ordering::Relaxed) {
                 return Err(StreamUnpackError::Cancelled);
             }
             // Fetch local header + compressed payload in a single ranged read (with 256B extra
             // headroom so typical local headers never require a second round-trip).
-            let guess_end = (entry.local_offset + 30 + entry.name.len() as u64 + 256 + entry.comp_size)
-                .min(total_size - 1);
+            let guess_end =
+                (entry.local_offset + 30 + entry.name.len() as u64 + 256 + entry.comp_size)
+                    .min(total_size - 1);
             let mut buf = fetch_range(&client, &url, entry.local_offset, guess_end).await?;
             downloaded.fetch_add(buf.len() as u64, Ordering::Relaxed);
             if buf.len() < 30 || &buf[0..4] != b"PK\x03\x04" {
@@ -1029,6 +1091,10 @@ pub async fn unpack_zip_url(
             .map_err(|e| StreamUnpackError::BadArchive(e.to_string()))??;
             bytes_written.fetch_add(wrote, Ordering::Relaxed);
             files_done.fetch_add(1, Ordering::Relaxed);
+            if let Some(p) = &progress {
+                p.done_bytes.fetch_add(wrote, Ordering::Relaxed);
+                p.files_done.fetch_add(1, Ordering::Relaxed);
+            }
 
             if let Ok(mut guard) = resume_state.lock() {
                 guard.completed.insert(entry.name);
@@ -1126,8 +1192,9 @@ fn unpack_tar_reader<R: Read>(
             continue;
         }
         let raw_path = entry.path()?.to_string_lossy().into_owned();
-        let rel = safe::rel_path(&raw_path, 64)
-            .map_err(|w| StreamUnpackError::BadArchive(format!("unsafe tar path {raw_path}: {w}")))?;
+        let rel = safe::rel_path(&raw_path, 64).map_err(|w| {
+            StreamUnpackError::BadArchive(format!("unsafe tar path {raw_path}: {w}"))
+        })?;
         let dst = dest_dir.join(rel);
         if let Some(p) = dst.parent() {
             fs::create_dir_all(p)?;
@@ -1146,6 +1213,7 @@ pub async fn unpack_tar_url(
     url: &Url,
     dest_dir: &Path,
     cancel: Arc<AtomicBool>,
+    progress: Option<Arc<UnpackProgress>>,
 ) -> Result<StreamUnpackReport, StreamUnpackError> {
     let resp = client
         .get(url.clone())
@@ -1154,6 +1222,9 @@ pub async fn unpack_tar_url(
         .map_err(|e| StreamUnpackError::Http(e.to_string()))?;
     if !resp.status().is_success() {
         return Err(StreamUnpackError::Http(format!("HTTP {}", resp.status())));
+    }
+    if let (Some(p), Some(len)) = (&progress, resp.content_length()) {
+        p.total_bytes.store(len, Ordering::Relaxed);
     }
 
     let (tx, rx) = mpsc::sync_channel::<Result<Vec<u8>, String>>(16);
@@ -1207,6 +1278,9 @@ pub async fn unpack_tar_url(
         match chunk {
             Ok(b) => {
                 downloaded += b.len() as u64;
+                if let Some(p) = &progress {
+                    p.done_bytes.store(downloaded, Ordering::Relaxed);
+                }
                 if tx.send(Ok(b.to_vec())).is_err() {
                     break;
                 }
@@ -1222,6 +1296,10 @@ pub async fn unpack_tar_url(
     let (files, bytes_written) = unpack_task
         .await
         .map_err(|e| StreamUnpackError::BadArchive(e.to_string()))??;
+    if let Some(p) = &progress {
+        p.files_done.store(files, Ordering::Relaxed);
+        p.files_total.store(files, Ordering::Relaxed);
+    }
     Ok(StreamUnpackReport {
         files,
         bytes_written,
@@ -1239,12 +1317,24 @@ pub async fn unpack_url(
     concurrency: usize,
     cancel: Arc<AtomicBool>,
 ) -> Result<StreamUnpackReport, StreamUnpackError> {
+    unpack_url_with_progress(client, url, dest_dir, concurrency, cancel, None).await
+}
+
+/// [`unpack_url`] with optional live progress counters for UI display.
+pub async fn unpack_url_with_progress(
+    client: &reqwest::Client,
+    url: &Url,
+    dest_dir: &Path,
+    concurrency: usize,
+    cancel: Arc<AtomicBool>,
+    progress: Option<Arc<UnpackProgress>>,
+) -> Result<StreamUnpackReport, StreamUnpackError> {
     let lower = url.path().to_ascii_lowercase();
     let trimmed = lower.trim_end_matches('/');
     if trimmed.ends_with(".acpkg") || trimmed.ends_with("/manifest.json") {
-        unpack_acpkg_url(client, url, dest_dir, concurrency, cancel).await
+        unpack_acpkg_url(client, url, dest_dir, concurrency, cancel, progress).await
     } else if trimmed.ends_with(".zip") {
-        unpack_zip_url(client, url, dest_dir, concurrency, cancel).await
+        unpack_zip_url(client, url, dest_dir, concurrency, cancel, progress).await
     } else if trimmed.ends_with(".tar")
         || trimmed.ends_with(".tar.gz")
         || trimmed.ends_with(".tgz")
@@ -1253,7 +1343,7 @@ pub async fn unpack_url(
         || trimmed.ends_with(".tar.zst")
         || trimmed.ends_with(".tzst")
     {
-        unpack_tar_url(client, url, dest_dir, cancel).await
+        unpack_tar_url(client, url, dest_dir, cancel, progress).await
     } else {
         Err(StreamUnpackError::Unsupported(format!(
             "cannot stream-unpack {}",

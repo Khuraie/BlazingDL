@@ -282,31 +282,36 @@ fn real_helpers_go_through_the_relay() {
         ours.extend(extra.iter().map(|s| s.to_string()));
         ours
     };
-    let finish = |what: &str, cmd: Result<std::process::Command, blazingdl_tools::proc::ProcError>| {
-        let mut cmd = match cmd {
-            Ok(c) => c,
-            Err(e) => return (false, format!("refused before starting: {e}")),
-        };
-        cmd.stdout(Stdio::null()).stderr(Stdio::piped());
-        let out = cmd.output().unwrap();
-        let err = String::from_utf8_lossy(&out.stderr).to_string();
-        if std::env::var_os("BLAZINGDL_TEST_VERBOSE").is_some() {
-            println!(
-                "===== {what}
+    let finish =
+        |what: &str, cmd: Result<std::process::Command, blazingdl_tools::proc::ProcError>| {
+            let mut cmd = match cmd {
+                Ok(c) => c,
+                Err(e) => return (false, format!("refused before starting: {e}")),
+            };
+            cmd.stdout(Stdio::null()).stderr(Stdio::piped());
+            let out = cmd.output().unwrap();
+            let err = String::from_utf8_lossy(&out.stderr).to_string();
+            if std::env::var_os("BLAZINGDL_TEST_VERBOSE").is_some() {
+                println!(
+                    "===== {what}
 {err}"
-            );
-        }
-        for line in err.lines().filter(|l| {
-            l.contains("ffmpeg command line") || l.contains("Protocol") || l.contains("filter")
-        }) {
-            println!("{what}: {line}");
-        }
-        let tail = err.lines().rev().take(3).collect::<Vec<_>>().join(" | ");
-        (out.status.success(), tail)
-    };
+                );
+            }
+            for line in err.lines().filter(|l| {
+                l.contains("ffmpeg command line") || l.contains("Protocol") || l.contains("filter")
+            }) {
+                println!("{what}: {line}");
+            }
+            let tail = err.lines().rev().take(3).collect::<Vec<_>>().join(" | ");
+            (out.status.success(), tail)
+        };
     let run = |what: &str, url: &str, extra: &[&str]| {
-        let cmd =
-            blazingdl_tools::proc::ytdlp(std::path::Path::new(&ytdlp), &[], &ours(what, extra), url);
+        let cmd = blazingdl_tools::proc::ytdlp(
+            std::path::Path::new(&ytdlp),
+            &[],
+            &ours(what, extra),
+            url,
+        );
         finish(what, cmd)
     };
     // A looked-up page whose one format is `url` over `protocol` (what the app hands yt-dlp).

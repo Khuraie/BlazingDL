@@ -349,23 +349,17 @@ fn explain(answer: Result<String, String>) -> Result<String, String> {
     let answer = answer.map_err(|e| format!("{NOT_RUNNING} ({e})"))?;
     match answer.as_str() {
         "timeout" => {
-            return Err(
-                "BlazingDL didn't answer in time (a dialog may be open \
+            return Err("BlazingDL didn't answer in time (a dialog may be open \
                         in it); try again."
-                    .into(),
-            );
+                .into());
         }
         "denied" => {
-            return Err(
-                "BlazingDL refused the request: its channel file \
+            return Err("BlazingDL refused the request: its channel file \
                         (ipc.json) is from another start. Ask the user to restart the app."
-                    .into(),
-            );
+                .into());
         }
         "gone" => {
-            return Err(
-                "BlazingDL is closing; try again once it has started.".into(),
-            );
+            return Err("BlazingDL is closing; try again once it has started.".into());
         }
         _ => {}
     }

@@ -63,6 +63,8 @@ enum Sub {
 
 /// Options → Remote's page number (the tabs' numbers).
 const REMOTE_PAGE: usize = 11;
+/// Options → BlazingDL page number (Stream Unpack, Focus Mode, NNTP, Webhooks).
+const BLAZING_PAGE: usize = 12;
 /// Test browser integration: from a check's line to the path under it (#818).
 const DETAIL_H: f32 = 18.0;
 
@@ -162,7 +164,11 @@ fn dns_names() -> Vec<String> {
         // i18n: Options → Connection → DNS: the operating system's own DNS (the default)
         crate::i18n::t("The system's DNS").to_owned(),
     ];
-    out.extend(blazingdl_engine::dns::PRESETS.iter().map(|p| p.name.to_owned()));
+    out.extend(
+        blazingdl_engine::dns::PRESETS
+            .iter()
+            .map(|p| p.name.to_owned()),
+    );
     // i18n: Options → Connection → DNS: a DNS server the user types in
     out.push(crate::i18n::t("Another DNS...").to_owned());
     out
@@ -266,6 +272,14 @@ pub struct OptionsDialog {
     pub snoozed_until: Option<crate::finish::Until>,
     /// Resume now was clicked: the app ends the snooze (at once, not on OK).
     pub resume_snooze: bool,
+    /// BlazingDL tab editable text buffers.
+    focus_kb: String,
+    nntp_port: String,
+    nntp_conns: String,
+    rule_enabled: bool,
+    rule_pattern: String,
+    rule_move_to: String,
+    rule_webhook: String,
 }
 
 impl OptionsDialog {
@@ -377,6 +391,25 @@ impl OptionsDialog {
             ua_auto: settings.own_user_agent().is_none(),
             snoozed_until: None,
             resume_snooze: false,
+            focus_kb: settings.focus_mode.throttle_kbps.to_string(),
+            nntp_port: settings.nntp.port.to_string(),
+            nntp_conns: settings.nntp.connections.to_string(),
+            rule_enabled: settings.automation_rules.first().is_some_and(|r| r.enabled),
+            rule_pattern: settings
+                .automation_rules
+                .first()
+                .map(|r| r.pattern.clone())
+                .unwrap_or_default(),
+            rule_move_to: settings
+                .automation_rules
+                .first()
+                .and_then(|r| r.move_to.clone())
+                .unwrap_or_default(),
+            rule_webhook: settings
+                .automation_rules
+                .first()
+                .and_then(|r| r.webhook_url.clone())
+                .unwrap_or_default(),
         }
     }
 
@@ -395,7 +428,7 @@ impl OptionsDialog {
             LIGHT_BG(),
             |ui, o| {
                 // Ctrl+Tab through the pages in the tabs' order (Archives, 10, came last).
-                const ORDER: [usize; 12] = [0, 1, 2, 3, 4, 11, 5, 6, 7, 8, 9, 10];
+                const ORDER: [usize; 13] = [0, 1, 2, 3, 4, 11, BLAZING_PAGE, 5, 6, 7, 8, 9, 10];
                 let at = ORDER.iter().position(|p| *p == self.page).unwrap_or(0);
                 let by_key = winui::tab_keys(ui, ORDER.len(), at).map(|i| ORDER[i]);
                 if let Some(p) = tabs(ui, o, self.page).or(by_key) {
@@ -413,6 +446,7 @@ impl OptionsDialog {
                     9 => self.regional(ui, o),
                     10 => self.archives(ui, o),
                     REMOTE_PAGE => self.remote_page(ui, o),
+                    BLAZING_PAGE => self.blazing_page(ui, o),
                     8 => self.sounds(ui, o),
                     _ => self.regional(ui, o),
                 }
@@ -498,6 +532,49 @@ impl OptionsDialog {
                     .parse()
                     .unwrap_or(s.test_archives_gb)
                     .clamp(1, TEST_GB_MAX);
+                s.focus_mode.throttle_kbps = self
+                    .focus_kb
+                    .trim()
+                    .parse()
+                    .unwrap_or(s.focus_mode.throttle_kbps)
+                    .max(64);
+                s.nntp.port = self.nntp_port.trim().parse().unwrap_or(s.nntp.port).max(1);
+                s.nntp.connections = self
+                    .nntp_conns
+                    .trim()
+                    .parse()
+                    .unwrap_or(s.nntp.connections)
+                    .clamp(1, 32);
+                let has_rule = self.rule_enabled
+                    || !self.rule_webhook.trim().is_empty()
+                    || !self.rule_move_to.trim().is_empty()
+                    || !self.rule_pattern.trim().is_empty();
+                if has_rule {
+                    let rule = crate::automation::AutomationRule {
+                        name: s
+                            .automation_rules
+                            .first()
+                            .map(|r| r.name.clone())
+                            .filter(|n| !n.is_empty())
+                            .unwrap_or_else(|| "Default Rule".into()),
+                        enabled: self.rule_enabled,
+                        pattern: self.rule_pattern.trim().to_owned(),
+                        category: s.automation_rules.first().and_then(|r| r.category.clone()),
+                        move_to: (!self.rule_move_to.trim().is_empty())
+                            .then(|| self.rule_move_to.trim().to_owned()),
+                        run_command: s
+                            .automation_rules
+                            .first()
+                            .and_then(|r| r.run_command.clone()),
+                        webhook_url: (!self.rule_webhook.trim().is_empty())
+                            .then(|| self.rule_webhook.trim().to_owned()),
+                    };
+                    if s.automation_rules.is_empty() {
+                        s.automation_rules.push(rule);
+                    } else {
+                        s.automation_rules[0] = rule;
+                    }
+                }
                 Outcome::Done(s)
             }
             Outcome::Closed => Outcome::Closed,
@@ -3284,6 +3361,166 @@ impl OptionsDialog {
         self.sub = Some(Sub::Pair);
     }
 
+    /// BlazingDL power features: 1× Disk Stream Unpack, Hedged/Adaptive engine, Game/Focus
+    /// Auto-Throttle, Usenet NNTP server, and Post-Download Automation/Webhook rule.
+    fn blazing_page(&mut self, ui: &mut Ui, o: Pos2) {
+        let p = ui.painter().clone();
+        let title = "BlazingDL Engine & Automation";
+        let w = winui::text_width_font(&p, winui::tahoma_bold(), title);
+        header(
+            ui,
+            o,
+            Icon::PageConnection,
+            title,
+            true,
+            406.0 - w,
+            61.0,
+            406.0,
+        );
+
+        // Engine & Unpack toggles
+        winui::checkbox_light(
+            ui,
+            o + vec2(21.0, 86.0),
+            &mut self.s.stream_unpack,
+            "1x Disk Stream Unpack (.zip/.tar.*/.acpkg to folder; .rar/.7z auto-extract)",
+            true,
+        );
+        winui::checkbox_light(
+            ui,
+            o + vec2(21.0, 108.0),
+            &mut self.s.hedge_tail,
+            "Hedged tail racing (preempt stalled tail chunks)",
+            true,
+        );
+        winui::checkbox_light(
+            ui,
+            o + vec2(21.0, 130.0),
+            &mut self.s.adaptive_streams,
+            "Auto-adaptive stream concurrency",
+            true,
+        );
+
+        // Focus Auto-Throttle
+        winui::checkbox_light(
+            ui,
+            o + vec2(21.0, 158.0),
+            &mut self.s.focus_mode.enabled,
+            "Focus Auto-Throttle in fullscreen games",
+            true,
+        );
+        text(&p, o.x + 255.0, o.y + 171.0, "Cap (KB/s):", LIGHT_TEXT());
+        winui::edit_light(
+            ui,
+            r(o, 326.0, 157.0, 80.0, 21.0),
+            &mut self.focus_kb,
+            self.s.focus_mode.enabled,
+            false,
+        );
+
+        // Usenet NNTP (.nzb)
+        text(
+            &p,
+            o.x + 21.0,
+            o.y + 202.0,
+            "Usenet NNTP (.nzb) Host:",
+            LIGHT_TEXT(),
+        );
+        winui::edit_light(
+            ui,
+            r(o, 158.0, 189.0, 165.0, 21.0),
+            &mut self.s.nntp.host,
+            true,
+            false,
+        );
+        text(&p, o.x + 329.0, o.y + 202.0, "Port:", LIGHT_TEXT());
+        winui::edit_light(
+            ui,
+            r(o, 360.0, 189.0, 46.0, 21.0),
+            &mut self.nntp_port,
+            true,
+            false,
+        );
+
+        text(&p, o.x + 21.0, o.y + 229.0, "User:", LIGHT_TEXT());
+        winui::edit_light(
+            ui,
+            r(o, 62.0, 216.0, 130.0, 21.0),
+            &mut self.s.nntp.username,
+            true,
+            false,
+        );
+        text(&p, o.x + 200.0, o.y + 229.0, "Pass:", LIGHT_TEXT());
+        winui::edit_light(
+            ui,
+            r(o, 236.0, 216.0, 170.0, 21.0),
+            &mut self.s.nntp.password,
+            true,
+            true,
+        );
+
+        winui::checkbox_light(
+            ui,
+            o + vec2(21.0, 245.0),
+            &mut self.s.nntp.tls,
+            "Use NNTPS (TLS)",
+            true,
+        );
+        text(&p, o.x + 170.0, o.y + 258.0, "Connections:", LIGHT_TEXT());
+        winui::edit_light(
+            ui,
+            r(o, 248.0, 245.0, 50.0, 21.0),
+            &mut self.nntp_conns,
+            true,
+            false,
+        );
+
+        // Post-Download Automation & Webhooks
+        winui::checkbox_light(
+            ui,
+            o + vec2(21.0, 282.0),
+            &mut self.rule_enabled,
+            "Enable Post-Download Rule / Webhook (Discord, ntfy, JSON)",
+            true,
+        );
+        let ron = self.rule_enabled;
+        let rc_col = if ron { LIGHT_TEXT() } else { LIGHT_DISABLED() };
+        text(&p, o.x + 21.0, o.y + 318.0, "Regex:", rc_col);
+        winui::edit_light(
+            ui,
+            r(o, 92.0, 305.0, 314.0, 21.0),
+            &mut self.rule_pattern,
+            ron,
+            false,
+        );
+        text(&p, o.x + 21.0, o.y + 346.0, "Move to:", rc_col);
+        winui::edit_light(
+            ui,
+            r(o, 92.0, 333.0, 314.0, 21.0),
+            &mut self.rule_move_to,
+            ron,
+            false,
+        );
+        text(&p, o.x + 21.0, o.y + 374.0, "Webhook:", rc_col);
+        winui::edit_light(
+            ui,
+            r(o, 92.0, 361.0, 314.0, 21.0),
+            &mut self.rule_webhook,
+            ron,
+            false,
+        );
+
+        winui::paragraph(
+            &p,
+            o.x + 21.0,
+            o.y + 398.0,
+            "Leave Regex empty to match every download. Discord and ntfy.sh URLs are auto-formatted; other URLs receive a JSON completion payload.",
+            LIGHT_DISABLED(),
+            o.x + 406.0,
+            14.0,
+        );
+    }
+
     /// Remote (#141, ours): phones and computers on the local network add and control
     /// downloads from a page BlazingDL serves, once paired with a code shown here.
     fn remote_page(&mut self, ui: &mut Ui, o: Pos2) {
@@ -3312,7 +3549,10 @@ impl OptionsDialog {
             color,
         );
         let chosen = self.s.remote_listen.trim().to_owned();
-        let mut values = vec![String::new(), blazingdl_remote::addrs::THIS_COMPUTER.to_owned()];
+        let mut values = vec![
+            String::new(),
+            blazingdl_remote::addrs::THIS_COMPUTER.to_owned(),
+        ];
         let mut labels = vec![
             // i18n: Options → Remote → Listen on: the default: each of the computer's private local network addresses (never one the internet reaches)
             crate::i18n::t("Every local network address").to_owned(),
@@ -5162,26 +5402,27 @@ fn tab_row(
 /// The two-row tab strip and the page frame; returns the page clicked.
 fn tabs(ui: &mut Ui, o: Pos2, page: usize) -> Option<usize> {
     // (page, label, x0, x1, label x): the rows never move sideways, only swap front and back.
-    // Remote (#141, ours) joins the first row, which is sized by its labels since.
-    const G: [(usize, &str, f32, f32, f32); 6] = [
+    // Remote (#141, ours) and BlazingDL join the first row, sized by their labels.
+    const G: [(usize, &str, f32, f32, f32); 7] = [
         // i18n: tab title: general settings
-        (0, crate::i18n::mark("General"), 8.0, 82.0, 26.0),
+        (0, crate::i18n::mark("General"), 8.0, 72.0, 20.0),
         // i18n: tab title
-        (1, crate::i18n::mark("File types"), 82.0, 166.0, 101.0),
+        (1, crate::i18n::mark("File types"), 72.0, 146.0, 84.0),
         // i18n: tab title: where downloads are saved
-        (2, crate::i18n::mark("Save to"), 166.0, 241.0, 185.0),
+        (2, crate::i18n::mark("Save to"), 146.0, 208.0, 158.0),
         // i18n: tab title: download settings
-        (3, crate::i18n::mark("Downloads"), 241.0, 330.0, 260.0),
+        (3, crate::i18n::mark("Downloads"), 208.0, 282.0, 220.0),
         // i18n: tab title: connection settings
-        (4, crate::i18n::mark("Connection"), 330.0, 419.0, 349.0),
+        (4, crate::i18n::mark("Connection"), 282.0, 354.0, 294.0),
         (
             REMOTE_PAGE,
             // i18n: tab title: control BlazingDL from a phone or another computer on the local network
             crate::i18n::mark("Remote"),
-            380.0,
-            419.0,
-            390.0,
+            354.0,
+            386.0,
+            360.0,
         ),
+        (BLAZING_PAGE, "BlazingDL", 386.0, 419.0, 390.0),
     ];
     // IDM's Dial Up / VPN tab is gone (D-021: no modem support; it did nothing); ours, Regional
     // (how dates and times are written), Accounts (#44, debrid services) and Archives (#37) share
@@ -5203,7 +5444,7 @@ fn tabs(ui: &mut Ui, o: Pos2, page: usize) -> Option<usize> {
     let p = ui.painter().clone();
     let border = winui::HEADER_LINE();
     let (g, pr) = (tab_row(&p, &G, false), tab_row(&p, &P, false));
-    let first_row = page < 5 || page == REMOTE_PAGE;
+    let first_row = page < 5 || page == REMOTE_PAGE || page == BLAZING_PAGE;
     let (front, back): (&[_], &[_]) = if first_row { (&g, &pr) } else { (&pr, &g) };
     let mut clicked = None;
     let mut tab = |ui: &mut Ui,

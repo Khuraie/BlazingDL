@@ -296,7 +296,9 @@ impl Because {
             Because::Chosen => "chosen in View → Draw with".into(),
             Because::Default => "the default here".into(),
             Because::Override => "the testing override (/renderer, BLAZINGDL_RENDERER)".into(),
-            Because::OpenGlUnfit => format!("OpenGL can't draw BlazingDL here: {}", said(Way::OpenGl)),
+            Because::OpenGlUnfit => {
+                format!("OpenGL can't draw BlazingDL here: {}", said(Way::OpenGl))
+            }
             Because::FailedBefore => format!("{api} failed here before: {}", said(Way::Card)),
         }
     }
@@ -483,7 +485,9 @@ impl Way {
         match self {
             Way::Card => file(STARTING).zip(file(FAILED)),
             Way::Software => file(SOFTWARE_STARTING).zip(file(SOFTWARE_FAILED)),
-            Way::OpenGl => blazingdl_ipc::data_dir().map(|d| (d.join(GL_STARTING), d.join(GL_FAILED))),
+            Way::OpenGl => {
+                blazingdl_ipc::data_dir().map(|d| (d.join(GL_STARTING), d.join(GL_FAILED)))
+            }
         }
     }
 
@@ -1556,7 +1560,9 @@ fn gl_paint_failed(main: bool, error: &str, in_a_row: u32, failing_for: std::tim
             tracing::error!("{details}: not started again (it would draw with OpenGL again)");
             return;
         }
-        tracing::warn!("OpenGL can't draw BlazingDL here: {details}; passed over from the next start");
+        tracing::warn!(
+            "OpenGL can't draw BlazingDL here: {details}; passed over from the next start"
+        );
         remember_failure(Way::OpenGl, Why::LostTwice, &details);
     } else if let Some(f) = &file {
         let _ = std::fs::write(f, now.to_string());

@@ -1821,7 +1821,11 @@ fn build_nic_clients(
         let mut sub = opts.clone();
         sub.route = crate::net::Route::Bound(b.clone());
         if let Ok(c) = client(&sub, url, as_get, seen) {
-            out.push((b.label.clone(), c, Arc::new(std::sync::atomic::AtomicU64::new(0))));
+            out.push((
+                b.label.clone(),
+                c,
+                Arc::new(std::sync::atomic::AtomicU64::new(0)),
+            ));
         }
     }
     out
@@ -2915,9 +2919,7 @@ async fn run_resume(
         && (saved.asked_as_own || crate::agent::own_for(&saved.url))
         && let Some(own) = own_agent(&opts, &headers)
     {
-        shared.event(
-            "Going on under BlazingDL's own name, as the site's bot check asked",
-        );
+        shared.event("Going on under BlazingDL's own name, as the site's bot check asked");
         opts = speaking_own(&opts, own);
     }
     shared.limiter.set(opts.speed_limit);
@@ -3610,9 +3612,7 @@ impl FirstAsk<'_> {
             Err(e) if agent_refused(&e) && opts.agent_fallback.is_some() => {
                 // #372: the rest of the download goes as BlazingDL too.
                 opts.user_agent = opts.agent_fallback.take().unwrap_or_default();
-                shared.event(
-                    "The server refused the browser's User-Agent; asking as BlazingDL",
-                );
+                shared.event("The server refused the browser's User-Agent; asking as BlazingDL");
                 let client1 = client(opts, url, self.as_get, self.seen)?;
                 let first = first_get(&client1, url, headers, opts, expects, shared, cancel).await;
                 Ok((client1, first, true))
@@ -4376,44 +4376,47 @@ async fn worker(ctx: Arc<Ctx>, id: WorkerId, mut first: Option<Body>) -> Result<
         if ctx.cancel.is_cancelled() {
             return Err(Error::Cancelled);
         }
-        let assign = ctx.shared.with_planner(|p| p.assign(id, after.take())).or_else(|| {
-            if !ctx.opts.hedge_tail {
-                return None;
-            }
-            let best = ctx.shared.best_speed.load(Ordering::Relaxed);
-            if best < 32 * 1024 {
-                return None;
-            }
-            let now = std::time::Instant::now();
-            {
-                let last = ctx.last_hedge.lock().unwrap();
-                if last.is_some_and(|t| now.duration_since(t) < Duration::from_secs(2)) {
+        let assign = ctx
+            .shared
+            .with_planner(|p| p.assign(id, after.take()))
+            .or_else(|| {
+                if !ctx.opts.hedge_tail {
                     return None;
                 }
-            }
-            let slow: Vec<WorkerId> = {
-                let v = ctx.shared.view.lock().unwrap();
-                v.connections
-                    .iter()
-                    .filter(|c| {
-                        c.id != id
-                            && ((matches!(c.status, ConnStatus::Receiving)
-                                && c.speed > 0
-                                && c.speed * 4 < best)
-                                || matches!(c.status, ConnStatus::Retrying(_)))
-                    })
-                    .map(|c| c.id)
-                    .collect()
-            };
-            if slow.is_empty() {
-                return None;
-            }
-            let hedged = ctx.shared.with_planner(|p| p.preempt_slow_tail(id, &slow));
-            if hedged.is_some() {
-                *ctx.last_hedge.lock().unwrap() = Some(now);
-            }
-            hedged
-        });
+                let best = ctx.shared.best_speed.load(Ordering::Relaxed);
+                if best < 32 * 1024 {
+                    return None;
+                }
+                let now = std::time::Instant::now();
+                {
+                    let last = ctx.last_hedge.lock().unwrap();
+                    if last.is_some_and(|t| now.duration_since(t) < Duration::from_secs(2)) {
+                        return None;
+                    }
+                }
+                let slow: Vec<WorkerId> = {
+                    let v = ctx.shared.view.lock().unwrap();
+                    v.connections
+                        .iter()
+                        .filter(|c| {
+                            c.id != id
+                                && ((matches!(c.status, ConnStatus::Receiving)
+                                    && c.speed > 0
+                                    && c.speed * 4 < best)
+                                    || matches!(c.status, ConnStatus::Retrying(_)))
+                        })
+                        .map(|c| c.id)
+                        .collect()
+                };
+                if slow.is_empty() {
+                    return None;
+                }
+                let hedged = ctx.shared.with_planner(|p| p.preempt_slow_tail(id, &slow));
+                if hedged.is_some() {
+                    *ctx.last_hedge.lock().unwrap() = Some(now);
+                }
+                hedged
+            });
         let Some(a) = assign else {
             ctx.shared.conn(id, ConnView::finish);
             return Ok(());
@@ -4647,7 +4650,13 @@ enum Received {
 
 /// `GET` bytes `[from, to)`; checks the server returned exactly that range of the same file.
 /// FTP: `REST from` and `RETR`.
-async fn request(ctx: &Ctx, id: WorkerId, target: &Target, from: u64, to: u64) -> Result<Body, Error> {
+async fn request(
+    ctx: &Ctx,
+    id: WorkerId,
+    target: &Target,
+    from: u64,
+    to: u64,
+) -> Result<Body, Error> {
     if let Some(site) = &ctx.ftp {
         return match cancellable(&ctx.cancel, site.open_at(from, Some(ctx.size))).await {
             Ok(t) => {
@@ -4691,9 +4700,7 @@ async fn request(ctx: &Ctx, id: WorkerId, target: &Target, from: u64, to: u64) -
             if let Some(v) = &if_range {
                 headers.insert(header::IF_RANGE, v.clone());
             }
-            let (head, body, _) = b
-                .get(fetch_url.clone(), headers, true, &ctx.cancel)
-                .await?;
+            let (head, body, _) = b.get(fetch_url.clone(), headers, true, &ctx.cancel).await?;
             (head, body)
         }
         None => {
@@ -4708,7 +4715,11 @@ async fn request(ctx: &Ctx, id: WorkerId, target: &Target, from: u64, to: u64) -
             let mut req = build(
                 http_client,
                 fetch_url.clone(),
-                if same_host { target.post.as_ref() } else { None },
+                if same_host {
+                    target.post.as_ref()
+                } else {
+                    None
+                },
                 hdrs,
                 ctx.opts.site_agent(),
             )

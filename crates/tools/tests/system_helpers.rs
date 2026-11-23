@@ -59,7 +59,10 @@ fn check_windows(root: &std::path::Path) {
         },
         ..Default::default()
     };
-    assert!(!blazingdl_tools::refreshable(&dir), "system copy not refreshed");
+    assert!(
+        !blazingdl_tools::refreshable(&dir),
+        "system copy not refreshed"
+    );
     assert!(!dir.join("yt-dlp").exists(), "system helper left unmanaged");
 
     // A managed copy still wins over the system copy.
@@ -75,7 +78,10 @@ fn check_windows(root: &std::path::Path) {
     )
     .unwrap();
     assert_eq!(blazingdl_tools::installed(&dir), Some(own.clone()));
-    assert!(blazingdl_tools::refreshable(&dir), "a managed copy is refreshed");
+    assert!(
+        blazingdl_tools::refreshable(&dir),
+        "a managed copy is refreshed"
+    );
 
     // Once managed copy is removed, falls back to system copy.
     std::fs::remove_file(&own.exe).unwrap();
@@ -151,12 +157,17 @@ fn check(root: &std::path::Path) {
         },
         ..Default::default()
     };
-    assert!(!blazingdl_tools::refreshable(&dir), "system copy not refreshed");
+    assert!(
+        !blazingdl_tools::refreshable(&dir),
+        "system copy not refreshed"
+    );
     assert!(!dir.join("yt-dlp").exists(), "system helper left unmanaged");
     assert!(
         matches!(
             rt.block_on(blazingdl_tools::install_latest(&dir, &net, None)),
-            Err(blazingdl_tools::Error::Adapter(blazingdl_engine::NetError::Down { .. }))
+            Err(blazingdl_tools::Error::Adapter(
+                blazingdl_engine::NetError::Down { .. }
+            ))
         ),
         "the explicit way to BlazingDL's own copy goes to the network"
     );
@@ -177,11 +188,16 @@ fn check(root: &std::path::Path) {
     )
     .unwrap();
     assert_eq!(blazingdl_tools::installed(&dir), Some(own.clone()));
-    assert!(blazingdl_tools::refreshable(&dir), "a managed copy is refreshed");
+    assert!(
+        blazingdl_tools::refreshable(&dir),
+        "a managed copy is refreshed"
+    );
     assert!(
         matches!(
             rt.block_on(blazingdl_tools::install_latest(&dir, &net, None)),
-            Err(blazingdl_tools::Error::Adapter(blazingdl_engine::NetError::Down { .. }))
+            Err(blazingdl_tools::Error::Adapter(
+                blazingdl_engine::NetError::Down { .. }
+            ))
         ),
         "a managed copy still takes its ordinary update path"
     );
@@ -230,7 +246,9 @@ fn gallery_dl(
         assert!(
             matches!(
                 rt.block_on(gallery::install_latest(dir, net, None)),
-                Err(blazingdl_tools::Error::Adapter(blazingdl_engine::NetError::Down { .. }))
+                Err(blazingdl_tools::Error::Adapter(
+                    blazingdl_engine::NetError::Down { .. }
+                ))
             ),
             "the explicit way to BlazingDL's own copy goes to the network"
         );

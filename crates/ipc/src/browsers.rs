@@ -1370,7 +1370,10 @@ mod tests {
         // An archive tool's folder outside the temporary folder (WinRAR's own setting).
         assert!(temporary(&at(&format!("{home}/rt/Rar$EXa1.2")), &temps));
         assert!(!temporary(&at(&format!("{home}/BlazingDL")), &temps));
-        assert!(!temporary(&at(&format!("{home}/Temporary/BlazingDL")), &temps));
+        assert!(!temporary(
+            &at(&format!("{home}/Temporary/BlazingDL")),
+            &temps
+        ));
         assert!(!temporary(&at(&format!("{temp}x/BlazingDL")), &temps));
         if cfg!(windows) {
             let upper = r"C:\USERS\X\APPDATA\LOCAL\TEMP\mdm";
@@ -1433,10 +1436,7 @@ mod tests {
         // The AppImage's copy of the helper, whose AppImage was deleted.
         #[cfg(unix)]
         {
-            let copy = d
-                .path()
-                .join("browser-host")
-                .join("blazingdl-nmhost");
+            let copy = d.path().join("browser-host").join("blazingdl-nmhost");
             program(&copy);
             let image = d.path().join("BlazingDL.AppImage");
             program(&image);

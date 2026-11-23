@@ -425,7 +425,9 @@ mod tests {
         let api = lab.url(&format!("/gh/api/repos/{BLAZINGDL}/releases/latest"));
         let web = lab.url("/gh/web");
         let names = ["SHA256SUMS.txt", "SHA256SUMS.txt.sig", ZIP, SETUP];
-        let found = latest_release(&net, &api, &web, BLAZINGDL, &names).await.unwrap();
+        let found = latest_release(&net, &api, &web, BLAZINGDL, &names)
+            .await
+            .unwrap();
         assert_eq!(found.tag, "v9.9.9");
         assert_eq!(
             found.files[2],

@@ -90,12 +90,16 @@ fn env<'a>(cmd: &'a mut Command, data: &Path, visible: bool) -> &'a mut Command 
     cmd.env("BLAZINGDL_DATA_DIR", data)
         .env("BLAZINGDL_OFFSCREEN", "1")
         .env("BLAZINGDL_TEST_TRAY", "1")
-        .env("BLAZINGDL_TEST_TRAY_VISIBLE", if visible { "1" } else { "0" })
+        .env(
+            "BLAZINGDL_TEST_TRAY_VISIBLE",
+            if visible { "1" } else { "0" },
+        )
 }
 
 /// The app's environment with no tray object at all (off-screen copies have none unless asked).
 fn env_no_tray<'a>(cmd: &'a mut Command, data: &Path) -> &'a mut Command {
-    cmd.env("BLAZINGDL_DATA_DIR", data).env("BLAZINGDL_OFFSCREEN", "1")
+    cmd.env("BLAZINGDL_DATA_DIR", data)
+        .env("BLAZINGDL_OFFSCREEN", "1")
 }
 
 /// A data folder whose first start asks nothing and checks nothing, with the close-to-tray

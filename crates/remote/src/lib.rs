@@ -295,9 +295,10 @@ async fn watch(weak: Weak<Inner>) {
     loop {
         tokio::time::sleep(Duration::from_secs(10)).await;
         let Some(this) = weak.upgrade() else { return };
-        let ips = tokio::task::spawn_blocking(|| addrs::chosen("", &blazingdl_engine::net::adapters()))
-            .await
-            .unwrap_or_default();
+        let ips =
+            tokio::task::spawn_blocking(|| addrs::chosen("", &blazingdl_engine::net::adapters()))
+                .await
+                .unwrap_or_default();
         let mut st = this.state.lock().unwrap();
         if st.config.on && st.config.listen.trim().is_empty() && ips != st.ips {
             // The watch is restarted with the rest: this task ends here.

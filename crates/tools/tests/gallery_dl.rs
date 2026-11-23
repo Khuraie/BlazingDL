@@ -18,7 +18,8 @@ use blazingdl_tools::video::State;
 #[test]
 #[ignore]
 fn every_release_mdm_can_drive_saves_a_gallery() {
-    let list = std::env::var_os("BLAZINGDL_TEST_GALLERYDLS").expect("set BLAZINGDL_TEST_GALLERYDLS");
+    let list =
+        std::env::var_os("BLAZINGDL_TEST_GALLERYDLS").expect("set BLAZINGDL_TEST_GALLERYDLS");
     let rt = tokio::runtime::Runtime::new().unwrap();
     let lab = rt.block_on(LabServer::start(Config::default())).unwrap();
     let mut rows = Vec::new();
@@ -44,7 +45,8 @@ fn every_release_mdm_can_drive_saves_a_gallery() {
         );
         let picture = lab.url(&format!("/gen/64K/picture-{}.jpg", v.replace('.', "-")));
         assert!(
-            blazingdl_tools::gallery::handles(&tool, &picture).unwrap_or_else(|e| panic!("{v}: {e}")),
+            blazingdl_tools::gallery::handles(&tool, &picture)
+                .unwrap_or_else(|e| panic!("{v}: {e}")),
             "{v} reads a picture's address"
         );
         assert!(
@@ -141,7 +143,9 @@ fn every_release_mdm_can_drive_saves_a_gallery() {
         let events: Vec<&str> = p.events.iter().map(|(_, e)| e.as_str()).collect();
         let by_engine = blazingdl_tools::gallery::Accepts::of(&v).print;
         assert_eq!(
-            events.iter().any(|e| e.starts_with("BlazingDL saved 1 files")),
+            events
+                .iter()
+                .any(|e| e.starts_with("BlazingDL saved 1 files")),
             by_engine,
             "{v}: {events:?}"
         );

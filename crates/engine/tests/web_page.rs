@@ -72,7 +72,8 @@ async fn a_page_where_the_browser_had_another_type_is_an_error() {
         expected_type: Some("application/msword".into()),
         ..Options::default()
     };
-    let probed = blazingdl_engine::probe_kept(url.parse().unwrap(), Default::default(), &opts).await;
+    let probed =
+        blazingdl_engine::probe_kept(url.parse().unwrap(), Default::default(), &opts).await;
     assert!(matches!(probed, Err(Error::GotWebPage)), "{probed:?}");
     // An address named like a file, added by hand (no browser): the same.
     let (out, _) = get(&s.url("/gen/245/report.pdf?html=1"), None, None).await;
@@ -450,7 +451,8 @@ async fn the_look_says_it_is_not_the_file() {
         expected_size: Some(117 << 20),
         ..Options::default()
     };
-    let probed = blazingdl_engine::probe_kept(url.parse().unwrap(), Default::default(), &opts).await;
+    let probed =
+        blazingdl_engine::probe_kept(url.parse().unwrap(), Default::default(), &opts).await;
     assert!(
         matches!(probed, Err(Error::NotTheFile { .. })),
         "{:?}",

@@ -519,8 +519,8 @@ fn global() -> &'static Arc<Vault> {
         let store: Box<dyn Store> = Box::new(Arc::new(Memory::default()));
         #[cfg(not(test))]
         let store: Box<dyn Store> = Box::new(System);
-        let portable =
-            std::env::var_os("BLAZINGDL_DATA_DIR").is_none() && blazingdl_ipc::portable_dir().is_some();
+        let portable = std::env::var_os("BLAZINGDL_DATA_DIR").is_none()
+            && blazingdl_ipc::portable_dir().is_some();
         Arc::new(Vault::new(
             store,
             &service(),
@@ -760,7 +760,9 @@ mod tests {
                 assert!(!second.contains(secret), "{second}");
             }
             assert_eq!(
-                second.matches("keychain:BlazingDL-test-unit/aaaa0001/").count(),
+                second
+                    .matches("keychain:BlazingDL-test-unit/aaaa0001/")
+                    .count(),
                 3,
                 "{second}"
             );
@@ -915,7 +917,11 @@ mod tests {
             let _ = on_disk(&loaded);
             copy.run_once();
             let json = on_disk(&loaded);
-            assert_eq!(json.matches("keychain:BlazingDL-test-unit/cccc0006/").count(), 3);
+            assert_eq!(
+                json.matches("keychain:BlazingDL-test-unit/cccc0006/")
+                    .count(),
+                3
+            );
             copy.after_write();
             copy.run_once();
         });

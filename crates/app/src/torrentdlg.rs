@@ -8,8 +8,8 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use egui::{Color32, Pos2, Rect, Stroke, Ui, pos2, vec2};
 use blazingdl_torrent::{Lookup, LookupStatus, Meta, Source};
+use egui::{Color32, Pos2, Rect, Stroke, Ui, pos2, vec2};
 
 use crate::dialogs::{Outcome, window};
 use crate::model::{Category, category_folder};
@@ -336,7 +336,8 @@ impl TorrentDialog {
                 {
                     Ok(Ok(bytes)) => Source::File(bytes),
                     Ok(Err(e)) if e.kind() == std::io::ErrorKind::InvalidData => {
-                        let e = crate::errors::torrent(&blazingdl_torrent::TorrentError::NotATorrent);
+                        let e =
+                            crate::errors::torrent(&blazingdl_torrent::TorrentError::NotATorrent);
                         *out.lock().unwrap() = Some(Err(e));
                         ctx.request_repaint();
                         return;

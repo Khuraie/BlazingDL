@@ -121,8 +121,7 @@ impl Startup {
                 .unwrap_or_default()
         }
         #[cfg(unix)]
-        std::fs::read_to_string(self.config.join("autostart/blazingdl.desktop"))
-            .unwrap_or_default()
+        std::fs::read_to_string(self.config.join("autostart/blazingdl.desktop")).unwrap_or_default()
     }
 }
 

@@ -886,7 +886,8 @@ async fn view_and_outcome(dl: Download) -> (Option<std::path::PathBuf>, std::pat
         assert!(
             !matches!(
                 v.state,
-                blazingdl_engine::download::State::Failed | blazingdl_engine::download::State::Cancelled
+                blazingdl_engine::download::State::Failed
+                    | blazingdl_engine::download::State::Cancelled
             ),
             "{:?}",
             v.error
@@ -1076,7 +1077,10 @@ async fn a_file_chosen_to_be_replaced_stays_when_the_download_fails() {
         tokio::time::sleep(std::time::Duration::from_millis(5)).await;
     }
     dl.cancel();
-    assert!(matches!(dl.wait().await, Err(blazingdl_engine::Error::Cancelled)));
+    assert!(matches!(
+        dl.wait().await,
+        Err(blazingdl_engine::Error::Cancelled)
+    ));
     assert_eq!(std::fs::read(&dest).unwrap(), b"the old file");
     s.set_faults(Faults::default());
 }
@@ -1089,7 +1093,9 @@ async fn a_resume_replaces_the_file_chosen_to_be_replaced() {
     let s = server("rate=1M").await;
     for replace in [true, false] {
         let (dir, state) = paused(&s, "/gen/8M/master.mp4?seed=25").await;
-        let dest = blazingdl_engine::state::ResumeState::load(&state).unwrap().dest;
+        let dest = blazingdl_engine::state::ResumeState::load(&state)
+            .unwrap()
+            .dest;
         std::fs::write(&dest, b"the old file").unwrap();
         s.set_faults(Faults::default());
         let opts = Options {
@@ -1154,7 +1160,9 @@ async fn a_file_that_cannot_be_replaced_is_kept_and_the_download_numbered() {
 async fn the_view_names_the_file_when_a_resume_finds_its_place_taken() {
     let s = server("rate=1M").await;
     let (dir, state) = paused(&s, "/gen/8M/master.mp4?seed=13").await;
-    let dest = blazingdl_engine::state::ResumeState::load(&state).unwrap().dest;
+    let dest = blazingdl_engine::state::ResumeState::load(&state)
+        .unwrap()
+        .dest;
     std::fs::write(&dest, b"someone else's").unwrap();
     s.set_faults(Faults::default());
     let dl = Download::resume(state.clone(), Default::default(), fast_opts()).unwrap();
@@ -1311,7 +1319,10 @@ async fn a_start_waits_for_its_places_old_files() {
         fast_opts(),
     );
     tokio::time::sleep(std::time::Duration::from_millis(300)).await;
-    assert!(!blazingdl_engine::naming::part_path(&dest).exists(), "waits");
+    assert!(
+        !blazingdl_engine::naming::part_path(&dest).exists(),
+        "waits"
+    );
     assert_eq!(std::fs::read(&free).unwrap(), b"old");
     cancelled.cancel();
     let err = tokio::time::timeout(std::time::Duration::from_secs(5), cancelled.wait())
@@ -1405,7 +1416,10 @@ async fn a_resumed_download_learns_its_digest_from_a_validated_part() {
         tokio::time::sleep(std::time::Duration::from_millis(20)).await;
     }
     dl.cancel();
-    assert!(matches!(dl.wait().await, Err(blazingdl_engine::Error::Cancelled)));
+    assert!(matches!(
+        dl.wait().await,
+        Err(blazingdl_engine::Error::Cancelled)
+    ));
     tokio::time::timeout(SETTLE, s.settled()).await.unwrap();
     let saved = blazingdl_engine::state::ResumeState::load(&state).unwrap();
     assert!(
@@ -1997,7 +2011,10 @@ async fn a_path_too_long_for_windows_is_refused_before_anything_is_created() {
         dest: Destination::File(dest),
     };
     let err = Download::start(req, fast_opts()).wait().await.unwrap_err();
-    assert!(matches!(err, blazingdl_engine::Error::PathTooLong(_)), "{err}");
+    assert!(
+        matches!(err, blazingdl_engine::Error::PathTooLong(_)),
+        "{err}"
+    );
     assert!(std::fs::read_dir(dir.path()).unwrap().next().is_none());
 }
 
@@ -2012,7 +2029,10 @@ async fn a_file_bigger_than_the_drive_is_refused_before_it_starts() {
         dest: Destination::Dir(dir.path().to_owned()),
     };
     let err = Download::start(req, fast_opts()).wait().await.unwrap_err();
-    assert!(matches!(err, blazingdl_engine::Error::NoSpace { .. }), "{err}");
+    assert!(
+        matches!(err, blazingdl_engine::Error::NoSpace { .. }),
+        "{err}"
+    );
     assert!(
         std::fs::read_dir(dir.path()).unwrap().next().is_none(),
         "nothing is left behind"
@@ -2070,7 +2090,11 @@ async fn crash_after_the_final_rename_completes_on_resume() {
     let (_dir, state) = paused(&s, "/gen/8M/f.bin?seed=13").await;
     // Simulate a crash right after the part file was renamed, before the state was removed.
     let saved = blazingdl_engine::state::ResumeState::load(&state).unwrap();
-    std::fs::rename(blazingdl_engine::naming::part_path(&saved.dest), &saved.dest).unwrap();
+    std::fs::rename(
+        blazingdl_engine::naming::part_path(&saved.dest),
+        &saved.dest,
+    )
+    .unwrap();
     let out = Download::resume(state.clone(), Default::default(), fast_opts())
         .unwrap()
         .wait()
@@ -2457,7 +2481,10 @@ async fn watch(
     d: Download,
     size: u64,
     gate: Option<std::sync::Arc<std::sync::RwLock<()>>>,
-) -> (Result<blazingdl_engine::Outcome, blazingdl_engine::Error>, Watched) {
+) -> (
+    Result<blazingdl_engine::Outcome, blazingdl_engine::Error>,
+    Watched,
+) {
     use blazingdl_engine::download::State;
     let started = std::time::Instant::now();
     let mut received = None;
@@ -2553,7 +2580,8 @@ async fn a_slow_disk_does_not_stop_the_transfer() {
         .await
         .expect("every request ends");
     let before = s.log().len();
-    let slow = blazingdl_engine::slowdisk::SlowDisk::slow_flush(std::time::Duration::from_millis(1500));
+    let slow =
+        blazingdl_engine::slowdisk::SlowDisk::slow_flush(std::time::Duration::from_millis(1500));
     let gate = slow.gate.clone();
     let opts = Options {
         save_interval: std::time::Duration::from_millis(100),
@@ -2742,7 +2770,10 @@ async fn pause_is_prompt_while_the_disk_flushes() {
     );
     s.clear_log();
     let resumed = Download::resume(state.clone(), Default::default(), fast_opts()).unwrap();
-    assert!(matches!(dl.wait().await, Err(blazingdl_engine::Error::Cancelled)));
+    assert!(matches!(
+        dl.wait().await,
+        Err(blazingdl_engine::Error::Cancelled)
+    ));
     assert!(!blazingdl_engine::naming::is_settling(&file));
     eprintln!(
         "#1328: stopped {stopped:?} after Pause, connections closed {closed:?}, saved {:?}",

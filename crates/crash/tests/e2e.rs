@@ -63,12 +63,16 @@ fn crashy_is_found_in_each_layout() {
     assert_eq!(find_crashy(&test), Some(crashy("old/debug/examples")));
     // Cargo 1.100: the copy in examples/ first.
     let test = file("new/debug/build/blazingdl-crash/1a2b/out/e2e-1a2b");
-    file(&format!("new/debug/build/blazingdl-crash/3c4d/out/{CRASHY}"));
+    file(&format!(
+        "new/debug/build/blazingdl-crash/3c4d/out/{CRASHY}"
+    ));
     file(&format!("new/debug/examples/{CRASHY}"));
     assert_eq!(find_crashy(&test), Some(crashy("new/debug/examples")));
     // A build folder of its own: the newest beside the test.
     let test = file("build/debug/build/blazingdl-crash/1a2b/out/e2e-1a2b");
-    let old = file(&format!("build/debug/build/blazingdl-crash/5e6f/out/{CRASHY}"));
+    let old = file(&format!(
+        "build/debug/build/blazingdl-crash/5e6f/out/{CRASHY}"
+    ));
     let earlier = std::time::SystemTime::now() - Duration::from_secs(3600);
     std::fs::File::options()
         .write(true)
@@ -76,7 +80,9 @@ fn crashy_is_found_in_each_layout() {
         .unwrap()
         .set_modified(earlier)
         .unwrap();
-    file(&format!("build/debug/build/blazingdl-crash/3c4d/out/{CRASHY}"));
+    file(&format!(
+        "build/debug/build/blazingdl-crash/3c4d/out/{CRASHY}"
+    ));
     assert_eq!(
         find_crashy(&test),
         Some(crashy("build/debug/build/blazingdl-crash/3c4d/out"))

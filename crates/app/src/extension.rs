@@ -107,7 +107,8 @@ fn is_seen(seen: &[String], row: &str) -> bool {
 /// A row for a browser of Firefox's family (Firefox, Zen, LibreWolf …): it gets the add-on's
 /// page on addons.mozilla.org, not the Chrome Web Store.
 fn is_gecko(row: &str) -> bool {
-    blazingdl_ipc::browsers::named(row).is_some_and(|b| b.family == blazingdl_ipc::browsers::Family::Gecko)
+    blazingdl_ipc::browsers::named(row)
+        .is_some_and(|b| b.family == blazingdl_ipc::browsers::Family::Gecko)
 }
 
 impl Extension {
@@ -1305,14 +1306,8 @@ mod tests {
         let line = refused_line(&chrome);
         let unknown = refused_line(&Refused::default());
         println!("{line}\n{unknown}\n{}", refused_how());
-        assert_eq!(
-            line,
-            "macOS keeps BlazingDL out of Google Chrome's folder."
-        );
-        assert_eq!(
-            unknown,
-            "macOS keeps BlazingDL out of a browser's folder."
-        );
+        assert_eq!(line, "macOS keeps BlazingDL out of Google Chrome's folder.");
+        assert_eq!(unknown, "macOS keeps BlazingDL out of a browser's folder.");
         assert!(refused_how().contains("Privacy & Security → Full Disk Access"));
         let check = refused_check(&chrome);
         assert!(!check.ok && check.why == Some("not-installed") && check.how.is_some());

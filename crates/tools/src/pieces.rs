@@ -1334,7 +1334,11 @@ mod tests {
 
     /// An HLS playlist's pieces from the lab server, each 96 KiB with the seed 100 + its index
     /// and `faults` of its own, and what they join into.
-    fn lab_playlist(lab: &blazingdl_labserver::LabServer, n: u64, faults: &str) -> (Vec<Piece>, Vec<u8>) {
+    fn lab_playlist(
+        lab: &blazingdl_labserver::LabServer,
+        n: u64,
+        faults: &str,
+    ) -> (Vec<Piece>, Vec<u8>) {
         let mut text = "#EXTM3U\n#EXT-X-TARGETDURATION:4\n".to_owned();
         let mut whole = Vec::new();
         for i in 0..n {

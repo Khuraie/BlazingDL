@@ -2401,7 +2401,9 @@ mod find_own_window_tests {
 
     /// A hidden test window of this thread titled `title`, destroyed by the caller.
     fn test_window(title: &str) -> HWND {
-        let class: Vec<u16> = "blazingdl-find-own-window-test-2\0".encode_utf16().collect();
+        let class: Vec<u16> = "blazingdl-find-own-window-test-2\0"
+            .encode_utf16()
+            .collect();
         let t: Vec<u16> = title.encode_utf16().chain(Some(0)).collect();
         // SAFETY: a class registered with the system's own procedure (again: a no-op), and a
         // hidden window of it on this thread; the strings are NUL-terminated.
@@ -6144,8 +6146,14 @@ mod default_apps_tests {
     fn another_default_is_named_once() {
         let fdm = || h(Some(FDM), Some("Free Download Manager"));
         let ours = || h(Some(&BLAZINGDL.to_uppercase()), Some("BlazingDL"));
-        assert_eq!(others(&[fdm(), fdm()], BLAZINGDL), ["Free Download Manager"]);
-        assert_eq!(others(&[fdm(), ours()], BLAZINGDL), ["Free Download Manager"]);
+        assert_eq!(
+            others(&[fdm(), fdm()], BLAZINGDL),
+            ["Free Download Manager"]
+        );
+        assert_eq!(
+            others(&[fdm(), ours()], BLAZINGDL),
+            ["Free Download Manager"]
+        );
         assert!(others(&[ours(), ours()], BLAZINGDL).is_empty());
         assert!(others(&[h(None, None), h(Some(" "), None)], BLAZINGDL).is_empty());
         // No name from Windows: the program's file.
@@ -6201,20 +6209,11 @@ mod default_apps_tests {
             [
                 (r"Software\Classes\magnet\shell\open\command", ""),
                 (r"Software\Classes\.torrent", ""),
-                (
-                    r"Software\Classes\BlazingDL.Magnet",
-                    "URL Protocol",
-                ),
-                (
-                    r"Software\Classes\BlazingDL.Magnet\shell\open\command",
-                    "",
-                ),
+                (r"Software\Classes\BlazingDL.Magnet", "URL Protocol"),
+                (r"Software\Classes\BlazingDL.Magnet\shell\open\command", ""),
                 (CAPABILITIES, "ApplicationName"),
                 (CAPABILITIES, "ApplicationDescription"),
-                (
-                    r"Software\BlazingDL\Capabilities\UrlAssociations",
-                    "magnet",
-                ),
+                (r"Software\BlazingDL\Capabilities\UrlAssociations", "magnet"),
                 (
                     r"Software\BlazingDL\Capabilities\FileAssociations",
                     ".torrent",
@@ -6407,10 +6406,7 @@ mod startup_tests {
         assert!(!startup_outdated(&format!("\"{EXE}\" /startup"), exe));
         assert!(!startup_outdated(&format!("\"{EXE}\" /STARTUP"), exe));
         // Another copy's (a portable one, a build elsewhere).
-        assert!(!startup_outdated(
-            r#""D:\mdm\blazingdl.exe""#,
-            exe
-        ));
+        assert!(!startup_outdated(r#""D:\mdm\blazingdl.exe""#, exe));
         assert!(!startup_outdated("", exe));
     }
 
@@ -6418,9 +6414,9 @@ mod startup_tests {
     #[test]
     fn the_installer_writes_the_same_entry() {
         let iss = include_str!("../../../tools/installer/blazingdl.iss");
-        assert!(iss.contains(
-            r#"ValueName: "BlazingDL"; ValueData: """{app}\{#AppExe}"" /startup""#
-        ));
+        assert!(
+            iss.contains(r#"ValueName: "BlazingDL"; ValueData: """{app}\{#AppExe}"" /startup""#)
+        );
     }
 }
 
@@ -9716,7 +9712,10 @@ impl ShareAnchor {
             RegisterClassW, SW_SHOW, SetLayeredWindowAttributes, ShowWindow, WNDCLASSW,
             WS_EX_LAYERED, WS_EX_TOPMOST, WS_POPUP,
         };
-        let class: Vec<u16> = "BlazingDL share sheet".encode_utf16().chain(Some(0)).collect();
+        let class: Vec<u16> = "BlazingDL share sheet"
+            .encode_utf16()
+            .chain(Some(0))
+            .collect();
         // SAFETY: a window class of plain defaults, registered once per process (a second
         // registration fails harmlessly); the window is ours, checked before use.
         unsafe {

@@ -99,7 +99,9 @@ fn download(exe: &std::path::Path, url: &str, browser: &FromBrowser) -> (State, 
 #[test]
 #[ignore]
 fn whose_cookies_ytdlp_sends() {
-    let exe = std::path::PathBuf::from(std::env::var("BLAZINGDL_TEST_YTDLP").expect("BLAZINGDL_TEST_YTDLP"));
+    let exe = std::path::PathBuf::from(
+        std::env::var("BLAZINGDL_TEST_YTDLP").expect("BLAZINGDL_TEST_YTDLP"),
+    );
     let rt = tokio::runtime::Runtime::new().unwrap();
     let lab = rt.block_on(LabServer::start(Config::default())).unwrap();
     let path = "/gen/1M/clip.mp4";

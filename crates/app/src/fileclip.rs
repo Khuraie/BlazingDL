@@ -41,7 +41,9 @@ pub fn copy_file(path: &Path) -> Result<(), Refused> {
         return Ok(());
     }
     let Some(_lock) = crate::clipboard_lock() else {
-        return Err(Refused::Failed("the clipboard is in use in BlazingDL".into()));
+        return Err(Refused::Failed(
+            "the clipboard is in use in BlazingDL".into(),
+        ));
     };
     #[cfg(windows)]
     let done = crate::win32::copy_files(&[&path]).map_err(Refused::Failed);

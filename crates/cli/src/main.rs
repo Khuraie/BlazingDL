@@ -37,7 +37,10 @@ fn program() -> Option<PathBuf> {
 #[cfg(unix)]
 fn run(program: &std::path::Path, args: Vec<OsString>) -> std::io::Error {
     use std::os::unix::process::CommandExt;
-    Command::new(program).arg(blazingdl_cli::FLAG).args(args).exec()
+    Command::new(program)
+        .arg(blazingdl_cli::FLAG)
+        .args(args)
+        .exec()
 }
 
 /// Windows: the program runs as a child, on this console. Ctrl+C reaches both: the program pauses

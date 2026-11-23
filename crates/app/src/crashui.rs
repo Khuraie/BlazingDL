@@ -12,12 +12,12 @@ use std::sync::mpsc::{Receiver, channel};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use egui::{Pos2, Rect, Ui};
 use blazingdl_crash::MonitorArgs;
 use blazingdl_crash::github::{self, Found};
 use blazingdl_crash::monitor::{self, Event};
 use blazingdl_crash::protocol::{Kind, Notes};
 use blazingdl_crash::report::{self, Made};
+use egui::{Pos2, Rect, Ui};
 
 use crate::winui::{self, ButtonKind, r};
 

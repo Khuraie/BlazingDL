@@ -142,7 +142,10 @@ async fn a_resumed_download_is_told_its_server() {
         assert!(Instant::now() < deadline, "the download never started");
     };
     d.cancel();
-    assert!(matches!(d.wait().await, Err(blazingdl_engine::Error::Cancelled)));
+    assert!(matches!(
+        d.wait().await,
+        Err(blazingdl_engine::Error::Cancelled)
+    ));
     lab.set_faults(faults);
     tokio::time::timeout(Duration::from_secs(20), lab.settled())
         .await

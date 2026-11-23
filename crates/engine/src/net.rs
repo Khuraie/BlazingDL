@@ -329,7 +329,10 @@ pub async fn tcp_connect(
     route.check(addr.ip()).map_err(refused)?;
     let b = match route {
         Route::Bound(b) if !b.exempt(addr.ip()) => b,
-        Route::Aggregate(bs) => match bs.iter().find(|b| b.allows(addr.ip()) && !b.exempt(addr.ip())) {
+        Route::Aggregate(bs) => match bs
+            .iter()
+            .find(|b| b.allows(addr.ip()) && !b.exempt(addr.ip()))
+        {
             Some(b) => b,
             None => return tokio::net::TcpStream::connect(addr).await,
         },
@@ -361,7 +364,9 @@ pub fn tcp_connect_blocking(
     )?;
     let bound = match route {
         Route::Bound(b) if !b.exempt(addr.ip()) => Some(b),
-        Route::Aggregate(bs) => bs.iter().find(|b| b.allows(addr.ip()) && !b.exempt(addr.ip())),
+        Route::Aggregate(bs) => bs
+            .iter()
+            .find(|b| b.allows(addr.ip()) && !b.exempt(addr.ip())),
         _ => None,
     };
     if let Some(b) = bound {
@@ -673,7 +678,10 @@ mod tests {
         assert_eq!(routes_for(&[], &list), Route::Any);
         let one = routes_for(&["Ethernet".into()], &list);
         assert!(matches!(one, Route::Bound(ref b) if b.name == "Ethernet"));
-        let agg = routes_for(&["Ethernet".into(), "Wi-Fi".into(), "DownVPN".into()], &list);
+        let agg = routes_for(
+            &["Ethernet".into(), "Wi-Fi".into(), "DownVPN".into()],
+            &list,
+        );
         match agg {
             Route::Aggregate(ref bs) => {
                 assert_eq!(bs.len(), 2);

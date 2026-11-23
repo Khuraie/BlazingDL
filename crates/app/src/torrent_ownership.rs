@@ -282,7 +282,8 @@ pub fn conflicts_cached(
 
 impl Ownership {
     pub fn validate(&self, bytes: &[u8], hash: &str) -> io::Result<()> {
-        let meta = blazingdl_torrent::librqbit::torrent_from_bytes(bytes).map_err(io::Error::other)?;
+        let meta =
+            blazingdl_torrent::librqbit::torrent_from_bytes(bytes).map_err(io::Error::other)?;
         let files = blazingdl_torrent::files_from_bytes(bytes).map_err(io::Error::other)?;
         let count = files.iter().filter(|f| !f.padding).count();
         if !meta.info_hash.as_string().eq_ignore_ascii_case(hash)

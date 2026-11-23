@@ -346,7 +346,8 @@ fn web_address(cand: &str) -> Option<String> {
 /// A magnet link to a torrent (one with its BitTorrent hash, `xt=urn:btih:` or `urn:btmh:`).
 fn magnet_link(cand: &str) -> Option<String> {
     let cand = cand.replace("&amp;", "&");
-    (blazingdl_torrent::Source::magnet(&cand).is_some() && magnet_hash(&cand).is_some()).then_some(cand)
+    (blazingdl_torrent::Source::magnet(&cand).is_some() && magnet_hash(&cand).is_some())
+        .then_some(cand)
 }
 
 /// A magnet link's torrent hash (`xt=urn:btih:<hash>`), in lower case.

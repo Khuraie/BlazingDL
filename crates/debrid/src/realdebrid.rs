@@ -200,7 +200,8 @@ pub(crate) async fn device_credentials(
         // Not allowed yet: Real-Debrid answers with an error until then (its wording isn't
         // documented); a service that is down or asks to slow down is said as such.
         Err(Fault::Service(
-            blazingdl_engine::ServiceFault::ServiceDown | blazingdl_engine::ServiceFault::TooManyRequests(_),
+            blazingdl_engine::ServiceFault::ServiceDown
+            | blazingdl_engine::ServiceFault::TooManyRequests(_),
         )) => Err(Fault::Service(blazingdl_engine::ServiceFault::ServiceDown)),
         Err(Fault::Service(_)) => Ok(None),
         Err(e) => Err(e),

@@ -505,9 +505,10 @@ impl RemoteTorrent {
                 return Err(cancelled());
             }
             let out = dl.wait().await.map_err(|e| match e {
-                blazingdl_engine::Error::Refused(blazingdl_engine::Refusal::Service { fault, .. }) => {
-                    Fault::Service(fault)
-                }
+                blazingdl_engine::Error::Refused(blazingdl_engine::Refusal::Service {
+                    fault,
+                    ..
+                }) => Fault::Service(fault),
                 e => Fault::Service(ServiceFault::Other(e.to_string())),
             })?;
             let mut sh = self.shared.lock().unwrap();

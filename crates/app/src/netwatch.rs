@@ -31,12 +31,6 @@ struct Shared {
 }
 
 impl NetWatch {
-    /// The route for `wanted` now, the watch started if needed (and told what is wanted). The
-    /// first answer is worked out at once, so nothing starts on a stale route.
-    pub fn route(&self, wanted: &str, ctx: &egui::Context) -> Route {
-        self.route_multi(wanted, &[], ctx)
-    }
-
     /// Resolve either multi-NIC aggregation (`multi`, when 2+ adapters are bonded) or the single
     /// chosen adapter (`wanted`), keeping the background adapter watcher updated.
     pub fn route_multi(&self, wanted: &str, multi: &[String], ctx: &egui::Context) -> Route {

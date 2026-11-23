@@ -169,8 +169,7 @@ pub struct DeviceCode {
 pub(crate) async fn device_start(http: &Http) -> Result<DeviceCode, Fault> {
     let mut u = url(http, "user/auth/device/start");
     // Letters and digits only, as the docs ask: shown on TorBox's page.
-    u.query_pairs_mut()
-        .append_pair("app", "BlazingDL");
+    u.query_pairs_mut().append_pair("app", "BlazingDL");
     data(call(http, http.get(&u)).await?)
 }
 
@@ -285,7 +284,9 @@ pub(crate) async fn item(http: &Http, key: &str, kind: Kind, id: u64) -> Result<
     match d {
         Value::Array(mut a) if !a.is_empty() => data(a.swap_remove(0)),
         Value::Object(_) => data(d),
-        _ => Err(Fault::Service(blazingdl_engine::ServiceFault::FileUnavailable)),
+        _ => Err(Fault::Service(
+            blazingdl_engine::ServiceFault::FileUnavailable,
+        )),
     }
 }
 

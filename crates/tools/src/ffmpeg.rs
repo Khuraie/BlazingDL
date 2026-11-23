@@ -106,7 +106,11 @@ struct Paged {
 /// for `build` is taken from them, and its version is that line and the list's date (when the
 /// release was made again; `.0` when the server gives none, which never replaces a dated
 /// install).
-async fn from_pages(net: &blazingdl_engine::Options, web: &str, build: &str) -> Result<Paged, Error> {
+async fn from_pages(
+    net: &blazingdl_engine::Options,
+    web: &str,
+    build: &str,
+) -> Result<Paged, Error> {
     let sums_url = github::download_url(web, REPO, LATEST_TAG, SUMS);
     let client = crate::client(net, &sums_url)?;
     let resp = client.get(&sums_url).send().await?.error_for_status()?;

@@ -173,7 +173,10 @@ async fn a_download_resumed_after_its_address_expired_goes_on() {
         assert!(Instant::now() < deadline, "the download never started");
     }
     dl.cancel();
-    assert!(matches!(dl.wait().await, Err(blazingdl_engine::Error::Cancelled)));
+    assert!(matches!(
+        dl.wait().await,
+        Err(blazingdl_engine::Error::Cancelled)
+    ));
     // The held-back answers go on (into connections the download closed), and end.
     s.set_faults(Faults::default());
     tokio::time::timeout(Duration::from_secs(10), s.settled())

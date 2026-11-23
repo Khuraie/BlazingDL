@@ -9,9 +9,9 @@
 
 use std::path::{Path, PathBuf};
 
-use egui::{Pos2, Ui, pos2};
 use blazingdl_tools::playlist::{Entry, Listing, PAGE};
 use blazingdl_tools::resolve::ListPage;
+use egui::{Pos2, Ui, pos2};
 
 use crate::dialogs::{Confirm, Outcome};
 use crate::winui::{self, ButtonKind, r};

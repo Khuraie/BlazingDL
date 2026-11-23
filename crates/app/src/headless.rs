@@ -65,10 +65,7 @@ pub fn main(args: Vec<String>) -> ExitCode {
         return ExitCode::FAILURE;
     }
     let Some(_instance) = blazingdl_ipc::instance_lock() else {
-        eprintln!(
-            "Another BlazingDL uses the data folder {}.",
-            data.display()
-        );
+        eprintln!("Another BlazingDL uses the data folder {}.", data.display());
         return ExitCode::FAILURE;
     };
     blazingdl_crash::logs::init(&data, blazingdl_crash::logs::APP);
@@ -273,7 +270,10 @@ mod tests {
         assert_eq!(setting(&args, "hosts", "BLAZINGDL_TEST_UNSET_HOSTS"), None);
         // An empty value is no value.
         let empty: Vec<String> = vec!["--downloads".into(), " ".into()];
-        assert_eq!(setting(&empty, "downloads", "BLAZINGDL_TEST_UNSET_DL"), None);
+        assert_eq!(
+            setting(&empty, "downloads", "BLAZINGDL_TEST_UNSET_DL"),
+            None
+        );
     }
 
     /// A downloads folder is made and written to at start, leaving nothing behind; a folder of

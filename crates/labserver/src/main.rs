@@ -3,8 +3,8 @@ use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 
 use anyhow::Context;
-use clap::Parser;
 use blazingdl_labserver::{Config, Faults, LabServer};
+use clap::Parser;
 
 /// HTTP Range test server with a request log and fault injection.
 #[derive(Parser)]
@@ -104,8 +104,10 @@ async fn main() -> anyhow::Result<()> {
         server.url("")
     );
     if let Some(ca) = server.ca_der() {
-        let path =
-            std::env::temp_dir().join(format!("blazingdl-labserver-ca-{}.der", server.addr().port()));
+        let path = std::env::temp_dir().join(format!(
+            "blazingdl-labserver-ca-{}.der",
+            server.addr().port()
+        ));
         std::fs::write(&path, ca)?;
         eprintln!("its test CA's certificate (DER): {}", path.display());
     }

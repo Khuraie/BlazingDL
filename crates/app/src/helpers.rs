@@ -1043,9 +1043,9 @@ impl Programs {
                 .and_then(|d| blazingdl_tools::chosen::chosen(d, h));
             // One of the person's, maybe passed over (a gallery-dl too old, #236).
             let mine = chosen.is_some();
-            let too_old = chosen
-                .as_ref()
-                .filter(|c| h == Helper::GalleryDl && blazingdl_tools::gallery::too_old(&c.version));
+            let too_old = chosen.as_ref().filter(|c| {
+                h == Helper::GalleryDl && blazingdl_tools::gallery::too_old(&c.version)
+            });
             let checking = self.checking.as_ref().is_some_and(|(c, _)| *c == h);
             let downloading = self.installing.as_ref().is_some_and(|(i, _)| *i == h);
             // Whether BlazingDL downloads a copy of its own on this system and processor: yt-dlp
@@ -1437,8 +1437,9 @@ impl Programs {
             );
         }
         let available = blazingdl_tools::jsruntime::available();
-        let path_of =
-            |r: &blazingdl_tools::jsruntime::Runtime| crate::i18n::ltr(&r.exe.display().to_string());
+        let path_of = |r: &blazingdl_tools::jsruntime::Runtime| {
+            crate::i18n::ltr(&r.exe.display().to_string())
+        };
         let named = |r: &blazingdl_tools::jsruntime::Runtime| match &r.version {
             Some(v) => format!("{} {v}", r.kind.label()),
             None => r.kind.label().to_owned(),

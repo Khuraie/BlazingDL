@@ -1346,7 +1346,9 @@ pub fn state_of(e: &blazingdl_engine::Error) -> LinkState {
         // i18n: Link grabber, a link's status: the remedy from the failure's sentence, for a server that sent a web page instead of the file. The sentence is the cell's hover tip
         blazingdl_engine::Error::GotWebPage => failed(e, Some(crate::i18n::t("Open in browser"))),
         // i18n: Link grabber, a link's status: the remedy from the failure's sentence, for a download link that expired. The sentence is the cell's hover tip
-        blazingdl_engine::Error::LinkExpired => failed(e, Some(crate::i18n::t("Refresh the address"))),
+        blazingdl_engine::Error::LinkExpired => {
+            failed(e, Some(crate::i18n::t("Refresh the address")))
+        }
         blazingdl_engine::Error::ChecksumMismatch(_) => {
             // i18n: Link grabber, a link's status: the remedy from the failure's sentence, for a file whose checksum didn't match. The sentence is the cell's hover tip
             failed(e, Some(crate::i18n::t("Download it again")))
@@ -1995,7 +1997,8 @@ mod tests {
             assert!(short.len() < full.len(), "{e:?}: {short} / {full}");
         }
         // A failure that offers no remedy keeps the sentence it had, cut as before.
-        let LinkState::Failed { short, full } = state_of(&blazingdl_engine::Error::ShortBody) else {
+        let LinkState::Failed { short, full } = state_of(&blazingdl_engine::Error::ShortBody)
+        else {
             panic!("ShortBody is not a failure");
         };
         assert_eq!(short, full);

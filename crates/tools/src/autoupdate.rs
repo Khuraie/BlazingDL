@@ -485,8 +485,8 @@ pub fn apply_all_staged(dir: &Path) {
 /// Update installs the newest again.
 pub fn go_back(dir: &Path, tool: Tool) -> Result<Settled, Error> {
     let root = tool.root(dir);
-    let current =
-        own(dir, tool).ok_or_else(|| Error::Missing(format!("{} of BlazingDL's own", tool.name())))?;
+    let current = own(dir, tool)
+        .ok_or_else(|| Error::Missing(format!("{} of BlazingDL's own", tool.name())))?;
     let previous = previous_in(&root)
         .filter(|p| newer(&current.version, &p.version))
         .ok_or_else(|| Error::Missing("an earlier version to go back to".into()))?;
@@ -878,7 +878,11 @@ fn deno_to_replace(dir: &Path, tool: Tool) -> Option<Installed> {
 
 /// The automatic checks due at `now`, one tool after the other, and the versions waiting for runs
 /// that ended elsewhere. Nothing is said: each is logged.
-pub async fn run_due(dir: &Path, net: &blazingdl_engine::Options, now: i64) -> Vec<(Tool, Checked)> {
+pub async fn run_due(
+    dir: &Path,
+    net: &blazingdl_engine::Options,
+    now: i64,
+) -> Vec<(Tool, Checked)> {
     apply_all_staged(dir);
     // A Deno of BlazingDL's own left by a run that used it as its Node.js came (#1570).
     crate::jsruntime::retire_deno(dir);

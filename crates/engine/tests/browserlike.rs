@@ -184,7 +184,10 @@ async fn a_stopped_download_resumes_through_the_same_connection() {
         assert!(Instant::now() < deadline, "the download never started");
     };
     dl.cancel();
-    assert!(matches!(dl.wait().await, Err(blazingdl_engine::Error::Cancelled)));
+    assert!(matches!(
+        dl.wait().await,
+        Err(blazingdl_engine::Error::Cancelled)
+    ));
     s.set_faults(Faults::parse("browser_only=1&rate=4M").unwrap());
     tokio::time::timeout(SETTLE, s.settled()).await.unwrap();
     let state = blazingdl_engine::state::state_path(&file);
@@ -555,7 +558,12 @@ async fn a_412_to_a_request_without_preconditions_is_asked_once_more_too() {
 }
 
 /// A download to its end, with its event log's lines.
-async fn to_the_end(dl: Download) -> (Result<blazingdl_engine::Outcome, blazingdl_engine::Error>, Vec<String>) {
+async fn to_the_end(
+    dl: Download,
+) -> (
+    Result<blazingdl_engine::Outcome, blazingdl_engine::Error>,
+    Vec<String>,
+) {
     let deadline = Instant::now() + Duration::from_secs(60);
     let events = loop {
         let snap = dl.snapshot();

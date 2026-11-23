@@ -152,7 +152,10 @@ async fn the_proxy_switch_wins_over_options() {
 fn a_password_in_the_proxy_switch_is_refused() {
     let dir = tempfile::tempdir().unwrap();
     for (proxy, says) in [
-        ("http://ann:secret@127.0.0.1:8080", "BLAZINGDL_PROXY_PASSWORD"),
+        (
+            "http://ann:secret@127.0.0.1:8080",
+            "BLAZINGDL_PROXY_PASSWORD",
+        ),
         ("ftp://127.0.0.1:21", "not a proxy's"),
     ] {
         let out = Command::new(APP)

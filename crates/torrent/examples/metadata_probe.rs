@@ -96,7 +96,8 @@ fn magnet_of(source: &str, no_trackers: bool) -> (String, String) {
     let magnet = if source.starts_with("magnet:") {
         source.to_owned()
     } else {
-        let bytes = blazingdl_torrent::read_file(std::path::Path::new(source)).expect(".torrent read");
+        let bytes =
+            blazingdl_torrent::read_file(std::path::Path::new(source)).expect(".torrent read");
         blazingdl_torrent::magnet_link(&bytes).expect("a .torrent")
     };
     let magnet = if no_trackers {

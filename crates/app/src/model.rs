@@ -666,6 +666,86 @@ pub enum Job {
     Torrent(crate::torrents::Run),
     /// A torrent through a debrid account, then its files over HTTP (#44).
     Remote(blazingdl_debrid::torrents::RemoteTorrent),
+    /// AntiCompress-style 1× disk streaming unpack (`.zip`, `.tar.*`, `.acpkg`) shown as a live
+    /// Transfer Table row with live progress, speed, and Pause/Cancel support.
+    Unpack(UnpackJob),
+}
+
+/// Live handle for an AntiCompress 1× disk streaming unpack task shown in the Transfer Table.
+pub struct UnpackJob {
+    pub url: Url,
+    pub dest: PathBuf,
+    pub progress: std::sync::Arc<blazingdl_extract::UnpackProgress>,
+    pub cancel: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    pub done: std::sync::Arc<
+        std::sync::Mutex<Option<Result<blazingdl_extract::StreamUnpackReport, String>>>,
+    >,
+}
+
+impl UnpackJob {
+    pub fn snapshot(&self) -> blazingdl_engine::Snapshot {
+        use std::sync::atomic::Ordering;
+        let total = self.progress.total_bytes.load(Ordering::Relaxed);
+        let done = self.progress.done_bytes.load(Ordering::Relaxed);
+        let outcome = self.done.lock().unwrap().clone();
+        let (state, error, size, downloaded) = match outcome {
+            Some(Ok(rep)) => {
+                let final_bytes = rep.bytes_written.max(done).max(total);
+                (
+                    blazingdl_engine::download::State::Done,
+                    None,
+                    Some(final_bytes),
+                    final_bytes,
+                )
+            }
+            Some(Err(e)) => {
+                let st = if self.cancel.load(Ordering::Relaxed) || e == "cancelled" {
+                    blazingdl_engine::download::State::Cancelled
+                } else {
+                    blazingdl_engine::download::State::Failed
+                };
+                (st, Some(e), (total > 0).then_some(total), done)
+            }
+            None => (
+                blazingdl_engine::download::State::Downloading,
+                None,
+                (total > 0).then_some(total),
+                done,
+            ),
+        };
+        let segments = size
+            .map(|t| {
+                vec![blazingdl_engine::download::SegmentView {
+                    start: 0,
+                    cursor: downloaded.min(t),
+                    end: t,
+                }]
+            })
+            .unwrap_or_default();
+        blazingdl_engine::Snapshot {
+            state,
+            url: self.url.clone(),
+            file: Some(self.dest.clone()),
+            size,
+            downloaded,
+            resumable: Some(true),
+            segments,
+            connections: Vec::new(),
+            error,
+            failure: None,
+            events: Vec::new(),
+            server: None,
+            at_service: None,
+            finishing: None,
+            kept: None,
+            nic_speeds: Vec::new(),
+        }
+    }
+
+    pub fn cancel(&self) {
+        self.cancel
+            .store(true, std::sync::atomic::Ordering::Relaxed);
+    }
 }
 
 /// A torrent sent to a debrid account (#44).
@@ -772,7 +852,9 @@ fn tool_snapshot(p: blazingdl_tools::video::Progress, url: &Url) -> blazingdl_en
                 // A path yt-dlp couldn't make, too long for the system (#1102): said as such,
                 // not as Python's "No such file or directory".
                 None => match blazingdl_tools::video::too_long(&e) {
-                    Some(path) => crate::errors::describe(&blazingdl_engine::Error::PathTooLong(path)),
+                    Some(path) => {
+                        crate::errors::describe(&blazingdl_engine::Error::PathTooLong(path))
+                    }
                     None => e,
                 },
             }),
@@ -852,6 +934,7 @@ impl Job {
             Job::Remote(r) => r.snapshot(),
             Job::Video { job, url } => tool_snapshot(job.progress(), url),
             Job::Gallery { job, url } => tool_snapshot(job.progress(), url),
+            Job::Unpack(u) => u.snapshot(),
         }
     }
 
@@ -862,6 +945,7 @@ impl Job {
             Job::Gallery { job, .. } => job.stop(),
             Job::Torrent(t) => t.cancel(),
             Job::Remote(r) => r.cancel(),
+            Job::Unpack(u) => u.cancel(),
         }
     }
 
@@ -903,6 +987,7 @@ impl Job {
             Job::Remote(r) => r.set_speed_limit(rate),
             Job::Video { job, .. } => job.set_speed_limit(rate),
             Job::Gallery { job, .. } => job.set_speed_limit(rate),
+            Job::Unpack(_) => {}
         }
     }
 
@@ -913,6 +998,7 @@ impl Job {
             Job::Video { job, .. } => job.speed_limit(),
             Job::Gallery { job, .. } => job.speed_limit(),
             Job::Remote(r) => r.speed_limit(),
+            Job::Unpack(_) => None,
         }
     }
 }
@@ -1538,7 +1624,8 @@ impl Item {
         self.status == Status::Error
             && self.live.is_none()
             && self.snap.as_ref().is_some_and(|s| {
-                s.state == State::Failed && matches!(s.failure, Some(blazingdl_engine::Error::GotWebPage))
+                s.state == State::Failed
+                    && matches!(s.failure, Some(blazingdl_engine::Error::GotWebPage))
             })
     }
 
@@ -2453,7 +2540,9 @@ mod tests {
     fn a_failed_merge_says_what_stays() {
         let url = Url::parse("https://example.org/a.mp4").unwrap();
         let mut p = blazingdl_tools::video::Progress {
-            state: blazingdl_tools::video::State::Failed("Postprocessing: Conversion failed!".into()),
+            state: blazingdl_tools::video::State::Failed(
+                "Postprocessing: Conversion failed!".into(),
+            ),
             merge_failed: Some(vec![
                 PathBuf::from("/v/Talk.f640.mp4"),
                 PathBuf::from("/v/Talk.faud-English.mp4"),

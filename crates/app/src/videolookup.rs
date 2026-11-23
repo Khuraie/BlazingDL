@@ -401,7 +401,10 @@ fn cut(s: &str, max: usize) -> String {
 /// Download video window keeps the click's): the address looked up (as the window looks it up,
 /// `pages::video_address`), the page's referrer, cookies and User-Agent, whether from a private
 /// window, and the page's title (a video yt-dlp knows only by its address is named by it, #345).
-pub fn context_of(ask: &blazingdl_ipc::VideoLookup, cmd: &blazingdl_ipc::Command) -> blazingdl_ipc::Command {
+pub fn context_of(
+    ask: &blazingdl_ipc::VideoLookup,
+    cmd: &blazingdl_ipc::Command,
+) -> blazingdl_ipc::Command {
     blazingdl_ipc::Command {
         video_page: Some(blazingdl_tools::pages::video_address(&ask.address)),
         video_title: ask
@@ -505,7 +508,9 @@ pub fn video_add(
         .filter(|u| matches!(u.scheme(), "http" | "https"))?;
     let name = crate::videodlg::file_name(title_of(&p.video, &p.address, &p.context), &p.choice);
     let (category, folder) = match music {
-        Some(m) if blazingdl_tools::resolve::is_audio(&p.choice) => (crate::model::Category::Music, m),
+        Some(m) if blazingdl_tools::resolve::is_audio(&p.choice) => {
+            (crate::model::Category::Music, m)
+        }
         _ => (crate::model::Category::Video, folder),
     };
     Some(VideoAdd {
@@ -557,7 +562,10 @@ impl Drop for Ended {
 
 /// yt-dlp's look-up as `videodlg::look_up_kept` makes it: what it found, and its answer as it
 /// gave it.
-type Kept = (Result<Looked, String>, Option<blazingdl_tools::proc::LookedUp>);
+type Kept = (
+    Result<Looked, String>,
+    Option<blazingdl_tools::proc::LookedUp>,
+);
 
 /// A look-up's two readings at once, the first answer taking the menu: BlazingDL's own of a stream's
 /// playlists (`fast`, on the runtime `rt`, 5 s at most; preferred, and much the quicker), and

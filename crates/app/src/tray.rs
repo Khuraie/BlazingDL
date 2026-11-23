@@ -468,11 +468,7 @@ impl Native {
             labels.push((Entry::Item(item.clone()), label));
             item
         };
-        add(
-            &menu,
-            crate::i18n::mark("Open BlazingDL"),
-            TrayCmd::Show,
-        );
+        add(&menu, crate::i18n::mark("Open BlazingDL"), TrayCmd::Show);
         menu.append(&PredefinedMenuItem::separator()).ok();
         let mark = crate::i18n::mark;
         add(&menu, mark("Add new download"), TrayCmd::AddUrl);
@@ -559,7 +555,8 @@ impl Native {
                     id: None,
                     // BLAZINGDL_TEST_TRAY_RECT=0: the shell gives the icon no place, as the reporters'
                     // did for one behind ^ (the close test, with a real icon the shell holds).
-                    rect_withheld: std::env::var_os("BLAZINGDL_TEST_TRAY_RECT").is_some_and(|v| v == "0"),
+                    rect_withheld: std::env::var_os("BLAZINGDL_TEST_TRAY_RECT")
+                        .is_some_and(|v| v == "0"),
                     fit: picture::Fit::new(fitted),
                     shown: None,
                 },

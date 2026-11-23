@@ -139,7 +139,12 @@ async fn multi_mirror_fails_over_when_mirror_is_broken() {
     let dir = tempfile::tempdir().unwrap();
 
     let opts = Options {
-        mirrors: vec![bad_mirror.url("/gen/2M/failover.bin?seed=99").parse().unwrap()],
+        mirrors: vec![
+            bad_mirror
+                .url("/gen/2M/failover.bin?seed=99")
+                .parse()
+                .unwrap(),
+        ],
         max_connections: 4,
         ..fast_opts()
     };
@@ -236,5 +241,8 @@ async fn metalink_v4_downloads_from_mirrors_and_verifies_sha256() {
 
     let expected = mf.best_hash().expect("sha256 present");
     let actual = verify::digest(&out.path, expected.algo).unwrap();
-    assert_eq!(actual, expected.value, "metalink sha-256 matches downloaded file");
+    assert_eq!(
+        actual, expected.value,
+        "metalink sha-256 matches downloaded file"
+    );
 }

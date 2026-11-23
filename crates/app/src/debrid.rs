@@ -69,7 +69,11 @@ impl Route {
 
     /// The unlocker a download of `url` goes with (`blazingdl_engine::Options::unlocker`): none when
     /// it is downloaded directly (`direct`: the user's choice, or the browser had started it).
-    pub fn unlocker(&self, url: &url::Url, direct: bool) -> Option<Arc<dyn blazingdl_engine::Unlocker>> {
+    pub fn unlocker(
+        &self,
+        url: &url::Url,
+        direct: bool,
+    ) -> Option<Arc<dyn blazingdl_engine::Unlocker>> {
         if direct || self.account(url).is_none() {
             return None;
         }

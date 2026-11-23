@@ -129,7 +129,10 @@ async fn refused_as_a_browser_it_gets_through_under_its_own_name() {
             Some("http://127.0.0.1/files/"),
             "{e:?}"
         );
-        assert!(e.sec_fetch_mode.is_none(), "BlazingDL's own connection: {e:?}");
+        assert!(
+            e.sec_fetch_mode.is_none(),
+            "BlazingDL's own connection: {e:?}"
+        );
         assert!(e.status == 200 || e.status == 206, "{e:?}");
     }
     assert_eq!(
@@ -161,9 +164,7 @@ async fn refused_under_every_name_it_tells_the_bot_check() {
     assert_eq!(own.user_agent.as_deref(), Some(OWN_USER_AGENT), "{log:?}");
     assert_eq!(own.outcome, "fault:browser_only", "{log:?}");
     assert!(
-        events
-            .iter()
-            .any(|e| e.contains("asked as BlazingDL")),
+        events.iter().any(|e| e.contains("asked as BlazingDL")),
         "{events:?}"
     );
 }

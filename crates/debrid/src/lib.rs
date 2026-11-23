@@ -24,8 +24,8 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant};
 
-use futures::future::BoxFuture;
 use blazingdl_engine::{ServiceFault, Unlocked};
+use futures::future::BoxFuture;
 use serde::{Deserialize, Serialize};
 use tokio_util::sync::CancellationToken;
 use url::Url;
@@ -234,7 +234,8 @@ struct Budget {
 impl Http {
     /// `net`: the downloads' options (proxy, DNS, adapter); `services`: where they answer.
     pub fn new(net: &blazingdl_engine::Options, services: Services) -> Result<Self, String> {
-        let client = blazingdl_engine::http_client(net, &services.rd.rest).map_err(|e| e.to_string())?;
+        let client =
+            blazingdl_engine::http_client(net, &services.rd.rest).map_err(|e| e.to_string())?;
         Ok(Http {
             client,
             services,
@@ -1141,13 +1142,7 @@ pub mod signin {
             }
             assert!(own_page(ad, "https://real-debrid.com/device").is_err());
             let tb = ServiceKind::TorBox;
-            assert!(
-                own_page(
-                    tb,
-                    "https://torbox.app/oauth/device?app=BlazingDL"
-                )
-                .is_ok()
-            );
+            assert!(own_page(tb, "https://torbox.app/oauth/device?app=BlazingDL").is_ok());
             assert!(own_page(tb, "https://real-debrid.com/device").is_err());
         }
     }

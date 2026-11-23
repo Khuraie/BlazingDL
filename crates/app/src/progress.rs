@@ -1,9 +1,9 @@
 //! The per-download progress dialog, painted to IDM 6.42's pixels
 //! (notes/ui-spec/progress-dialog.md). Coordinates are client pixels from the spec.
 
-use egui::{Color32, Pos2, Ui, ViewportId, vec2};
 use blazingdl_engine::Snapshot;
 use blazingdl_engine::download::ConnStatus;
+use egui::{Color32, Pos2, Ui, ViewportId, vec2};
 
 use crate::dialogs::display_path;
 use crate::model::{self, Item, Status, size3};
@@ -810,8 +810,11 @@ impl Progress {
         // longer of its two labels so it keeps its size when they change; Cancel stays at the
         // window's edge.
         let live = item.live_state();
-        self.live_stream |=
-            live.is_some() || matches!(item.video_helper(), Some(blazingdl_tools::streams::Helper::Live));
+        self.live_stream |= live.is_some()
+            || matches!(
+                item.video_helper(),
+                Some(blazingdl_tools::streams::Helper::Live)
+            );
         let mut row = vec![
             (
                 winui::widest_label(&p, &["<< Hide details", "Show details >>"]),

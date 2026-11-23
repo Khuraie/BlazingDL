@@ -850,7 +850,9 @@ pub fn session(language: &str, dark: bool) -> Session {
     Session {
         version: crate::help::VERSION.to_owned(),
         commit: crate::help::COMMIT.to_owned(),
-        install: blazingdl_tools::update::Install::detect().label().to_owned(),
+        install: blazingdl_tools::update::Install::detect()
+            .label()
+            .to_owned(),
         os: if cfg!(windows) {
             "Windows"
         } else if cfg!(target_os = "macos") {

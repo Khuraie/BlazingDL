@@ -1769,8 +1769,9 @@ mod tests {
     #[test]
     #[ignore]
     fn live_look_up_with_cookies() {
-        let exe =
-            std::path::PathBuf::from(std::env::var("BLAZINGDL_LIVE_YTDLP").expect("BLAZINGDL_LIVE_YTDLP"));
+        let exe = std::path::PathBuf::from(
+            std::env::var("BLAZINGDL_LIVE_YTDLP").expect("BLAZINGDL_LIVE_YTDLP"),
+        );
         let page = std::env::var("BLAZINGDL_LIVE_PAGE").expect("BLAZINGDL_LIVE_PAGE");
         let browser = proc::FromBrowser {
             cookies: Some("YSC=test".into()),

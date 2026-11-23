@@ -198,7 +198,9 @@ impl Extracts {
             from_vault: false,
             noted: false,
             keep: false,
-            delete: pkg.map_or(settings.extract_delete || settings.stream_unpack, |p| p.delete_after),
+            delete: pkg.map_or(settings.extract_delete || settings.stream_unpack, |p| {
+                p.delete_after
+            }),
             in_place: settings.extract_in_place || settings.stream_unpack,
             by_hand,
             subfolder: settings.extract_into(),

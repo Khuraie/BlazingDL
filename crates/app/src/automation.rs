@@ -51,7 +51,11 @@ impl AutomationRule {
         if !self.enabled {
             return false;
         }
-        if let Some(cat) = self.category.as_deref().map(str::trim).filter(|c| !c.is_empty())
+        if let Some(cat) = self
+            .category
+            .as_deref()
+            .map(str::trim)
+            .filter(|c| !c.is_empty())
             && !cat.eq_ignore_ascii_case(category.trim())
         {
             return false;
@@ -115,7 +119,9 @@ pub fn extract_checksum(text: &str, filename: Option<&str>) -> Option<Hash> {
 
         // Token scan: prefixed (`sha256:...`, `md5=...`) or bare hex (32/40/64/128 hex chars).
         for raw_tok in line.split_whitespace() {
-            let tok = raw_tok.trim_matches(|c: char| matches!(c, ',' | ';' | '"' | '\'' | '(' | ')' | '[' | ']'));
+            let tok = raw_tok.trim_matches(|c: char| {
+                matches!(c, ',' | ';' | '"' | '\'' | '(' | ')' | '[' | ']')
+            });
             if tok.len() < 32 {
                 continue;
             }
@@ -193,11 +199,7 @@ pub fn find_sibling_checksum(dest: &Path) -> Option<Hash> {
 }
 
 /// Spawn enabled matching automation rules asynchronously on `rt` without blocking the UI thread.
-pub fn run_rules_async(
-    rt: &tokio::runtime::Handle,
-    rules: &[AutomationRule],
-    info: CompletedInfo,
-) {
+pub fn run_rules_async(rt: &tokio::runtime::Handle, rules: &[AutomationRule], info: CompletedInfo) {
     let matched: Vec<AutomationRule> = rules
         .iter()
         .filter(|r| r.matches(&info.file_name, &info.category))
@@ -220,7 +222,12 @@ pub async fn execute_rules(rules: &[AutomationRule], mut info: CompletedInfo) ->
 
     for rule in rules {
         // 1. Optional auto-move
-        if let Some(dest_dir) = rule.move_to.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+        if let Some(dest_dir) = rule
+            .move_to
+            .as_deref()
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+        {
             let target_dir = PathBuf::from(dest_dir);
             if let Ok(moved) = move_file_into(&info.path, &target_dir) {
                 info.path = moved;

@@ -902,13 +902,27 @@ pub fn show(
         )));
         if saville {
             let hy = ct + (header_h() * 0.5).round() + 3.5;
-            text_font(&clip, title_font, x0 + pad_l, hy, &label, crate::theme::colors().muted);
+            text_font(
+                &clip,
+                title_font,
+                x0 + pad_l,
+                hy,
+                &label,
+                crate::theme::colors().muted,
+            );
         } else {
             text_font(&clip, title_font, x0 + pad_l, ct + 15.0, &label, TEXT());
         }
     }
     if saville {
-        fill(&p, cl, ct + header_h() - 1.0, rr, ct + header_h() - 1.0, HEADER_SEP());
+        fill(
+            &p,
+            cl,
+            ct + header_h() - 1.0,
+            rr,
+            ct + header_h() - 1.0,
+            HEADER_SEP(),
+        );
     }
 
     // ---- body ------------------------------------------------------------------------------
@@ -1218,7 +1232,10 @@ pub fn show(
                 } else {
                     TEXT()
                 };
-                if saville && *c == STATUS && let Some(frac) = row.progress {
+                if saville
+                    && *c == STATUS
+                    && let Some(frac) = row.progress
+                {
                     text_font(&clip, font.clone(), tx, top + 16.0, &s, ink);
                     crate::saville::inline_progress(&clip, cell, frac, row.status_group);
                 } else {

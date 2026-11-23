@@ -70,7 +70,9 @@ async fn main() {
                 let receiving = v
                     .connections
                     .iter()
-                    .filter(|c| matches!(c.status, blazingdl_engine::download::ConnStatus::Receiving))
+                    .filter(|c| {
+                        matches!(c.status, blazingdl_engine::download::ConnStatus::Receiving)
+                    })
                     .count();
                 let n = secs.len() - 1;
                 println!(

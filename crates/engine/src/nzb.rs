@@ -4,8 +4,8 @@
 use std::fs::OpenOptions;
 use std::io::{Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
@@ -182,7 +182,11 @@ pub fn filename_from_subject(subject: &str) -> String {
         }
     }
     let clean = subject.split(" yEnc").next().unwrap_or(subject).trim();
-    let fallback = if clean.is_empty() { "usenet.bin" } else { clean };
+    let fallback = if clean.is_empty() {
+        "usenet.bin"
+    } else {
+        clean
+    };
     crate::naming::sanitize(fallback)
 }
 
@@ -273,7 +277,10 @@ pub fn decode_yenc(raw: &[u8]) -> Result<YencPart, NzbError> {
 pub fn encode_yenc(name: &str, total_size: u64, offset: u64, data: &[u8]) -> Vec<u8> {
     let crc = crc32fast::hash(data);
     let mut out = Vec::with_capacity(data.len() + 128);
-    let _ = writeln!(out, "=ybegin part=1 line=128 size={total_size} name={name}\r");
+    let _ = writeln!(
+        out,
+        "=ybegin part=1 line=128 size={total_size} name={name}\r"
+    );
     let _ = writeln!(
         out,
         "=ypart begin={} end={}\r",
@@ -300,11 +307,7 @@ pub fn encode_yenc(name: &str, total_size: u64, offset: u64, data: &[u8]) -> Vec
     if col > 0 {
         out.extend_from_slice(b"\r\n");
     }
-    let _ = writeln!(
-        out,
-        "=yend size={} part=1 pcrc32={crc:08x}\r",
-        data.len()
-    );
+    let _ = writeln!(out, "=yend size={} part=1 pcrc32={crc:08x}\r", data.len());
     out
 }
 
@@ -347,7 +350,10 @@ async fn connect_nntp(cfg: &NntpConfig) -> Result<BufReader<Box<dyn AsyncStream>
     let mut line = String::new();
     reader.read_line(&mut line).await?;
     if !line.starts_with("200") && !line.starts_with("201") {
-        return Err(NzbError::Protocol(format!("unexpected greeting: {}", line.trim())));
+        return Err(NzbError::Protocol(format!(
+            "unexpected greeting: {}",
+            line.trim()
+        )));
     }
     if !cfg.username.is_empty() {
         reader
@@ -365,7 +371,10 @@ async fn connect_nntp(cfg: &NntpConfig) -> Result<BufReader<Box<dyn AsyncStream>
             reader.read_line(&mut line).await?;
         }
         if !line.starts_with("281") {
-            return Err(NzbError::Protocol(format!("auth rejected: {}", line.trim())));
+            return Err(NzbError::Protocol(format!(
+                "auth rejected: {}",
+                line.trim()
+            )));
         }
     }
     Ok(reader)
@@ -443,7 +452,11 @@ pub async fn download_nzb(
                 .open(&target)?,
         ));
         let queue = Arc::new(tokio::sync::Mutex::new(
-            nzb_file.segments.clone().into_iter().collect::<std::collections::VecDeque<_>>(),
+            nzb_file
+                .segments
+                .clone()
+                .into_iter()
+                .collect::<std::collections::VecDeque<_>>(),
         ));
         let mut handles = Vec::new();
         let n_workers = workers.min(nzb_file.segments.len().max(1));
@@ -480,8 +493,7 @@ pub async fn download_nzb(
             }));
         }
         for h in handles {
-            h.await
-                .map_err(|e| NzbError::Protocol(e.to_string()))??;
+            h.await.map_err(|e| NzbError::Protocol(e.to_string()))??;
         }
         saved_files.push(target);
     }
@@ -524,7 +536,10 @@ mod tests {
         let mut bad = encoded.clone();
         let mid = bad.len() / 2;
         bad[mid] = bad[mid].wrapping_add(1);
-        assert!(matches!(decode_yenc(&bad), Err(NzbError::CrcMismatch { .. })));
+        assert!(matches!(
+            decode_yenc(&bad),
+            Err(NzbError::CrcMismatch { .. })
+        ));
     }
 
     #[tokio::test]
@@ -589,9 +604,15 @@ mod tests {
             connections: 2,
         };
         let progress = Arc::new(AtomicU64::new(0));
-        let out = download_nzb(&nzb, &cfg, dir.path(), progress.clone(), CancellationToken::new())
-            .await
-            .unwrap();
+        let out = download_nzb(
+            &nzb,
+            &cfg,
+            dir.path(),
+            progress.clone(),
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap();
         assert_eq!(out.len(), 1);
         let mut expected = part1;
         expected.extend_from_slice(&part2);

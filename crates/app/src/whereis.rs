@@ -80,7 +80,9 @@ fn flags(ctx: &egui::Context) -> Option<egui::TextureHandle> {
     static FLAGS: OnceLock<Option<egui::TextureHandle>> = OnceLock::new();
     FLAGS
         .get_or_init(|| {
-            let img = image::load_from_memory(blazingdl_geo::FLAGS_PNG).ok()?.to_rgba8();
+            let img = image::load_from_memory(blazingdl_geo::FLAGS_PNG)
+                .ok()?
+                .to_rgba8();
             let size = [img.width() as usize, img.height() as usize];
             let ci = egui::ColorImage::from_rgba_unmultiplied(size, img.as_raw());
             Some(ctx.load_texture("country-flags", ci, egui::TextureOptions::LINEAR))

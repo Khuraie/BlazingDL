@@ -184,7 +184,9 @@ pub(crate) async fn transfer_status(
     let url = http.services.pm.join("transfer/list").expect("relative");
     let l: List = call(http, http.get(&url).bearer_auth(key)).await?;
     let Some(t) = l.transfers.into_iter().find(|t| t.id == id) else {
-        return Ok(Status::Failed(blazingdl_engine::ServiceFault::FileUnavailable));
+        return Ok(Status::Failed(
+            blazingdl_engine::ServiceFault::FileUnavailable,
+        ));
     };
     if let Some(s) = crate::torrents::pm_working(&t) {
         return Ok(s);

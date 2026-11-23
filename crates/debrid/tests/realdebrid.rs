@@ -6,7 +6,9 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use blazingdl_debrid::{Account, Credential, Debrid, Fault, Http, ServiceKind, Services, check, signin};
+use blazingdl_debrid::{
+    Account, Credential, Debrid, Fault, Http, ServiceKind, Services, check, signin,
+};
 use blazingdl_engine::{Destination, Download, Error, Options, Refusal, Request, ServiceFault};
 use blazingdl_labserver::{Config, LabServer, content, debrid::seed};
 use url::Url;

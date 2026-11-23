@@ -6,11 +6,11 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use futures::future::BoxFuture;
 use blazingdl_engine::{
     Destination, Download, Error, Options, Refusal, Request, ServiceFault, Unlocked, Unlocker,
 };
 use blazingdl_labserver::{Config, LabServer, content};
+use futures::future::BoxFuture;
 use reqwest::header::{COOKIE, HeaderMap, HeaderValue};
 use tokio_util::sync::CancellationToken;
 use url::Url;

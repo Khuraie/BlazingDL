@@ -257,7 +257,10 @@ async fn a_bot_check_is_named() {
         "a bot check is asked once more at most"
     );
     let plain = attempt("/plain/f.dat").wait().await.unwrap_err();
-    assert!(matches!(plain, blazingdl_engine::Error::Status(_)), "{plain:?}");
+    assert!(
+        matches!(plain, blazingdl_engine::Error::Status(_)),
+        "{plain:?}"
+    );
 }
 
 fn is_form_post(r: &Seen) -> bool {

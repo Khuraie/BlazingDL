@@ -445,7 +445,10 @@ fn app() -> eframe::Result {
         blazingdl_ipc::instance_lock()
     };
     let Some(_instance) = lock else {
-        let _ = blazingdl_ipc::send_waiting(&cmd.unwrap_or_default(), std::time::Duration::from_secs(10));
+        let _ = blazingdl_ipc::send_waiting(
+            &cmd.unwrap_or_default(),
+            std::time::Duration::from_secs(10),
+        );
         return Ok(());
     };
     #[cfg(windows)]
@@ -500,11 +503,7 @@ fn app() -> eframe::Result {
     // The log (release builds too) and the crash monitor.
     if let Some(data) = blazingdl_ipc::data_dir() {
         blazingdl_crash::logs::init(&data, blazingdl_crash::logs::APP);
-        tracing::info!(
-            "BlazingDL {} ({}) starting",
-            help::VERSION,
-            help::COMMIT
-        );
+        tracing::info!("BlazingDL {} ({}) starting", help::VERSION, help::COMMIT);
     }
     // The default browser, looked for once on a thread of its own (logged): its User-Agent is
     // the one links added by hand go with (#668).

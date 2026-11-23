@@ -15,7 +15,10 @@ const UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/141.0.0.0 Saf
 
 /// A data folder of its own, with the app's Options as `settings` (downloads.json).
 fn data_dir(name: &str, settings: serde_json::Value) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("blazingdl-nmhost-test-{name}-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!(
+        "blazingdl-nmhost-test-{name}-{}",
+        std::process::id()
+    ));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     let list = serde_json::json!({ "settings": settings });

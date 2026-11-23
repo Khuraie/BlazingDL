@@ -96,9 +96,7 @@ pub fn parse(xml: &str) -> Result<Vec<MetalinkFile>, MetalinkError> {
         for child in file.children().filter(|n| n.is_element()) {
             match child.tag_name().name() {
                 "size" => {
-                    size = child
-                        .text()
-                        .and_then(|t| t.trim().parse::<u64>().ok());
+                    size = child.text().and_then(|t| t.trim().parse::<u64>().ok());
                 }
                 "hash" => {
                     if let (Some(kind), Some(val)) = (child.attribute("type"), child.text())
@@ -225,7 +223,10 @@ mod tests {
         assert_eq!(f.name, "ubuntu-26.04.iso");
         assert_eq!(f.size, Some(5_368_709_120));
         assert_eq!(f.mirrors.len(), 3);
-        assert_eq!(f.primary_url().unwrap().as_str(), "https://mirror-us.example.org/ubuntu.iso");
+        assert_eq!(
+            f.primary_url().unwrap().as_str(),
+            "https://mirror-us.example.org/ubuntu.iso"
+        );
         assert_eq!(f.extra_mirrors().len(), 2);
         assert_eq!(f.best_hash().unwrap().algo, crate::verify::Algo::Sha256);
     }
@@ -248,7 +249,10 @@ mod tests {
           </files>
         </metalink>"#;
         let files = parse(xml).unwrap();
-        assert_eq!(files[0].primary_url().unwrap().as_str(), "https://fast.example.org/tool.tar.gz");
+        assert_eq!(
+            files[0].primary_url().unwrap().as_str(),
+            "https://fast.example.org/tool.tar.gz"
+        );
         assert_eq!(files[0].size, Some(1024));
     }
 }

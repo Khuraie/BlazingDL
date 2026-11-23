@@ -3444,20 +3444,22 @@ mod tests {
     #[test]
     #[ignore]
     fn live_download() {
-        let exe = PathBuf::from(std::env::var("BLAZINGDL_LIVE_YTDLP").expect("BLAZINGDL_LIVE_YTDLP"));
+        let exe =
+            PathBuf::from(std::env::var("BLAZINGDL_LIVE_YTDLP").expect("BLAZINGDL_LIVE_YTDLP"));
         let page = std::env::var("BLAZINGDL_LIVE_PAGE").expect("BLAZINGDL_LIVE_PAGE");
         let dir = tempfile::tempdir().unwrap();
         let format = std::env::var("BLAZINGDL_LIVE_FORMAT").unwrap_or_else(|_| "worstaudio".into());
-        let ffmpeg = std::env::var("BLAZINGDL_LIVE_FFMPEG").ok().map(PathBuf::from);
+        let ffmpeg = std::env::var("BLAZINGDL_LIVE_FFMPEG")
+            .ok()
+            .map(PathBuf::from);
         // BlazingDL's engine downloads the streams (#769), unless BLAZINGDL_LIVE_YTDLP_ALONE is set.
         let rt = tokio::runtime::Runtime::new().unwrap();
-        let engine =
-            std::env::var_os("BLAZINGDL_LIVE_YTDLP_ALONE")
-                .is_none()
-                .then(|| crate::streams::Engine {
-                    handle: rt.handle().clone(),
-                    opts: blazingdl_engine::Options::default(),
-                });
+        let engine = std::env::var_os("BLAZINGDL_LIVE_YTDLP_ALONE")
+            .is_none()
+            .then(|| crate::streams::Engine {
+                handle: rt.handle().clone(),
+                opts: blazingdl_engine::Options::default(),
+            });
         let job = VideoJob::start(
             &exe,
             &page,
@@ -3512,7 +3514,8 @@ mod tests {
     #[test]
     #[ignore]
     fn live_stop_ends_every_process() {
-        let exe = PathBuf::from(std::env::var("BLAZINGDL_LIVE_YTDLP").expect("BLAZINGDL_LIVE_YTDLP"));
+        let exe =
+            PathBuf::from(std::env::var("BLAZINGDL_LIVE_YTDLP").expect("BLAZINGDL_LIVE_YTDLP"));
         let url = std::env::var("BLAZINGDL_LIVE_SLOW").expect("BLAZINGDL_LIVE_SLOW");
         let dir = tempfile::tempdir().unwrap();
         let job = VideoJob::start(
@@ -4676,7 +4679,8 @@ mod tests {
     ];
 
     fn real_ffmpeg() -> (PathBuf, PathBuf) {
-        let ffmpeg = PathBuf::from(std::env::var("BLAZINGDL_LIVE_FFMPEG").expect("BLAZINGDL_LIVE_FFMPEG"));
+        let ffmpeg =
+            PathBuf::from(std::env::var("BLAZINGDL_LIVE_FFMPEG").expect("BLAZINGDL_LIVE_FFMPEG"));
         let probe = ffprobe_of(&ffmpeg).expect("ffprobe beside ffmpeg");
         (ffmpeg, probe)
     }

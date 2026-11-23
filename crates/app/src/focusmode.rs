@@ -61,20 +61,11 @@ impl ThrottleReason {
 }
 
 /// Runtime controller that caches OS fullscreen polling (every 2s) and computes effective caps.
+#[derive(Default)]
 pub struct FocusController {
     last_poll: Option<Instant>,
     fullscreen: bool,
     active_reason: Option<ThrottleReason>,
-}
-
-impl Default for FocusController {
-    fn default() -> Self {
-        Self {
-            last_poll: None,
-            fullscreen: false,
-            active_reason: None,
-        }
-    }
 }
 
 impl FocusController {
@@ -178,7 +169,7 @@ mod tests {
     fn tightest_cap_wins_across_manual_schedule_and_focus() {
         let mut curve = vec![None; 24];
         curve[20] = Some(4096); // 4 MB/s evening cap
-        curve[21] = Some(512);  // 512 KB/s peak cap
+        curve[21] = Some(512); // 512 KB/s peak cap
         let cfg = FocusConfig {
             enabled: true,
             throttle_kbps: 2048,

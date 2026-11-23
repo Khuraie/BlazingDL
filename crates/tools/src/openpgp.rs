@@ -720,7 +720,10 @@ mod tests {
         assert!(!sig.verifies(&keys[0], BLAZINGDL_SUMS));
         keys[0].can_sign = true;
         keys[0].expires = Some(u64::from(sig.created));
-        assert!(!sig.verifies(&keys[0], BLAZINGDL_SUMS), "expired as it signed");
+        assert!(
+            !sig.verifies(&keys[0], BLAZINGDL_SUMS),
+            "expired as it signed"
+        );
         keys[0].expires = Some(u64::from(sig.created) + 1);
         assert!(sig.verifies(&keys[0], BLAZINGDL_SUMS));
         keys[0].revoked = true;

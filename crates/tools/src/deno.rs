@@ -34,7 +34,10 @@ pub(crate) fn remove_own(dir: &Path) -> bool {
             true
         }
         Err(e) => {
-            tracing::warn!("BlazingDL's own Deno: couldn't remove {}: {e}", root.display());
+            tracing::warn!(
+                "BlazingDL's own Deno: couldn't remove {}: {e}",
+                root.display()
+            );
             false
         }
     }

@@ -14,8 +14,8 @@
 
 use std::time::Duration;
 
-use egui::{Pos2, Rect, Vec2, ViewportId, pos2, vec2};
 use blazingdl_tools::video::LiveState;
+use egui::{Pos2, Rect, Vec2, ViewportId, pos2, vec2};
 
 use crate::model::{self, Item, Status};
 use crate::winui::{self, ButtonKind, r};
@@ -266,7 +266,10 @@ fn row(item: &Item) -> Row {
         status: item.status,
         live,
         live_stream: live.is_some()
-            || matches!(item.video_helper(), Some(blazingdl_tools::streams::Helper::Live)),
+            || matches!(
+                item.video_helper(),
+                Some(blazingdl_tools::streams::Helper::Live)
+            ),
     }
 }
 

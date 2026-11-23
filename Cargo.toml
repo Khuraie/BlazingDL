@@ -23,7 +23,6 @@ blazingdl-extract = { path = "crates/extract" }
 blazingdl-geo = { path = "crates/geo" }
 blazingdl-ipc = { path = "crates/ipc" }
 blazingdl-labserver = { path = "crates/labserver" }
-blazingdl-mcp = { path = "crates/mcp" }
 blazingdl-remote = { path = "crates/remote" }
 blazingdl-tools = { path = "crates/tools" }
 blazingdl-torrent = { path = "crates/torrent" }

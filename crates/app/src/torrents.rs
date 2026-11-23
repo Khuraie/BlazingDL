@@ -490,7 +490,9 @@ pub fn refresh_blocklist(
 
 /// How the torrent session is held to the network adapter as it is (#35, #143): None without
 /// one chosen; else why torrents can't start (it isn't connected).
-pub fn route_bind(route: &blazingdl_engine::Route) -> Result<Option<blazingdl_torrent::Bind>, String> {
+pub fn route_bind(
+    route: &blazingdl_engine::Route,
+) -> Result<Option<blazingdl_torrent::Bind>, String> {
     let down = |label: &str| {
         crate::i18n::fmt(
             // i18n: an error: the network adapter chosen in Options (a VPN's, usually) is off or gone; {adapter} its name
@@ -1247,8 +1249,8 @@ async fn forget_torrent(
                 crate::i18n::t("the .torrent file kept for it is gone").to_owned()
             })?;
             let bytes = blazingdl_torrent::read_file(file).map_err(|e| e.to_string())?;
-            let meta =
-                blazingdl_torrent::librqbit::torrent_from_bytes(&bytes).map_err(|e| e.to_string())?;
+            let meta = blazingdl_torrent::librqbit::torrent_from_bytes(&bytes)
+                .map_err(|e| e.to_string())?;
             if !meta.info_hash.as_string().eq_ignore_ascii_case(&spec.hash) {
                 return Err(
                     // i18n: error when deleting a torrent: the .torrent file BlazingDL kept is another torrent's

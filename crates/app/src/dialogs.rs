@@ -5,8 +5,8 @@
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
-use egui::{Pos2, Ui, ViewportId, vec2};
 use blazingdl_engine::ProbeInfo;
+use egui::{Pos2, Ui, ViewportId, vec2};
 use url::Url;
 
 use crate::model::{self, Category};
@@ -1012,7 +1012,9 @@ impl AddUrl {
                 }
                 if ok || (enter && !list_was_open) {
                     match crate::model::parse_address(&self.address) {
-                        Ok(url) if blazingdl_engine::supported(&url) || url.scheme() == "magnet" => {
+                        Ok(url)
+                            if blazingdl_engine::supported(&url) || url.scheme() == "magnet" =>
+                        {
                             return Outcome::Done(NewUrl {
                                 url,
                                 login: self.typed_login(),
@@ -1062,7 +1064,9 @@ fn look(ask: &PlaceAsk) -> Found {
             match &ask.own {
                 // The download that started early is already writing here: its own part and
                 // state files must not number it (#597).
-                Some(own) if blazingdl_engine::naming::guess(&ask.dir, &ask.name) == *own => own.clone(),
+                Some(own) if blazingdl_engine::naming::guess(&ask.dir, &ask.name) == *own => {
+                    own.clone()
+                }
                 _ => blazingdl_engine::naming::destination(&ask.dir, &ask.name),
             }
         } else {
@@ -4746,7 +4750,10 @@ mod tests {
             "in front now, still on its own"
         );
         forget_window(&ctx, ViewportId::from_hash_of("owned-test"), key);
-        assert!(owned_by_main(&ctx, key, || true), "opened from BlazingDL: owned");
+        assert!(
+            owned_by_main(&ctx, key, || true),
+            "opened from BlazingDL: owned"
+        );
         assert!(owned_by_main(&ctx, key, || panic!("asked again")));
     }
 

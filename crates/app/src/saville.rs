@@ -172,7 +172,14 @@ pub fn header(
     // ---- 1. Left Catalog Identity Cell ----
     let id_w = rail_w.clamp(170.0, (width * 0.28).max(170.0));
     let id_right = o.x + id_w;
-    fill(&p, id_right, top, id_right, band.bottom() - 1.0, rule_color());
+    fill(
+        &p,
+        id_right,
+        top,
+        id_right,
+        band.bottom() - 1.0,
+        rule_color(),
+    );
 
     let icon_rc = winui::rect(Rect::from_min_size(
         pos2(o.x + 16.0, top + 16.0),
@@ -192,7 +199,14 @@ pub fn header(
         primary_ink(),
     );
     let ver = format!("DL-{} · RUST", env!("CARGO_PKG_VERSION"));
-    text_font(&p, meta_font.clone(), o.x + 54.0, top + 45.0, &ver, muted_ink());
+    text_font(
+        &p,
+        meta_font.clone(),
+        o.x + 54.0,
+        top + 45.0,
+        &ver,
+        muted_ink(),
+    );
     draw_barcode(&p, o.x + 16.0, top + 62.0, 14.0, 5.0, 4.0);
 
     // ---- 3. Right Action Command Cluster (compute width first so center waveform gets the rest) ----
@@ -253,7 +267,11 @@ pub fn header(
             let rect_en = Rect::from_min_size(pos2(bx, ry), vec2(bw, btn_h));
             let rc = winui::rect(rect_en);
             let resp = bar_ui
-                .interact(rc, egui::Id::unique(("saville-tb", orig_i)), winui::pointer_only())
+                .interact(
+                    rc,
+                    egui::Id::unique(("saville-tb", orig_i)),
+                    winui::pointer_only(),
+                )
                 .on_hover_text(crate::i18n::tc("toolbar", full_label));
             winui::expose(
                 &resp,
@@ -269,9 +287,17 @@ pub fn header(
             let down = enabled && resp.is_pointer_button_down_on();
             let (bg, border, ink) = if primary {
                 if down {
-                    (c.button_accent_pressed, c.button_accent_pressed, c.button_accent_text)
+                    (
+                        c.button_accent_pressed,
+                        c.button_accent_pressed,
+                        c.button_accent_text,
+                    )
                 } else if hot {
-                    (c.button_accent_hot, c.button_accent_hot, c.button_accent_text)
+                    (
+                        c.button_accent_hot,
+                        c.button_accent_hot,
+                        c.button_accent_text,
+                    )
                 } else {
                     (c.button_accent, c.button_accent, c.button_accent_text)
                 }
@@ -289,7 +315,15 @@ pub fn header(
             // Saville signature flat square end-cap along leading edge.
             let cap_w = if primary { 5.0 } else { 3.0 };
             let cap_rc = winui::rect(Rect::from_min_size(pos2(bx, ry), vec2(cap_w, btn_h)));
-            p.rect_filled(cap_rc, 0.0, if enabled { cap_color } else { c.button_disabled_border });
+            p.rect_filled(
+                cap_rc,
+                0.0,
+                if enabled {
+                    cap_color
+                } else {
+                    c.button_disabled_border
+                },
+            );
 
             let label_w = text_width_font(&p, btn_font.clone(), lbl);
             let content_w = bw - cap_w - if dropdown { 14.0 } else { 0.0 };
@@ -305,11 +339,7 @@ pub fn header(
                     pos2(winui::mx(ax + 6.0), ay),
                     pos2(winui::mx(ax + 3.0), ay + 4.0),
                 ];
-                p.add(egui::Shape::convex_polygon(
-                    tri.to_vec(),
-                    ink,
-                    Stroke::NONE,
-                ));
+                p.add(egui::Shape::convex_polygon(tri.to_vec(), ink, Stroke::NONE));
             }
             if keys == Some(orig_i) {
                 p.rect_stroke(
@@ -395,7 +425,10 @@ pub fn header(
         if wave_w >= 64.0 {
             draw_pulsar_plot(
                 &p,
-                Rect::from_min_max(pos2(wave_left, top + 14.0), pos2(wave_right, band.bottom() - 14.0)),
+                Rect::from_min_max(
+                    pos2(wave_left, top + 14.0),
+                    pos2(wave_right, band.bottom() - 14.0),
+                ),
                 pulse,
             );
         }
@@ -480,7 +513,10 @@ pub fn command_bar(
     let unpack_x = nic_x - gap - unpack_w;
 
     // Draw FOCUS pill
-    let focus_rect = winui::rect(Rect::from_min_size(pos2(focus_x, cy), vec2(focus_w, ctrl_h)));
+    let focus_rect = winui::rect(Rect::from_min_size(
+        pos2(focus_x, cy),
+        vec2(focus_w, ctrl_h),
+    ));
     let focus_resp = ui
         .interact(
             focus_rect,
@@ -497,12 +533,23 @@ pub fn command_bar(
     } else {
         SIGNAL_STEEL
     };
-    let focus_bg = if focus_resp.hovered() { c.button_hot } else { field_bg };
+    let focus_bg = if focus_resp.hovered() {
+        c.button_hot
+    } else {
+        field_bg
+    };
     p.rect_filled(focus_rect, 0.0, focus_bg);
     p.rect_stroke(
         focus_rect,
         0.0,
-        Stroke::new(1.0, if focus_reason.is_some() { SIGNAL_OCHRE } else { rule_color() }),
+        Stroke::new(
+            1.0,
+            if focus_reason.is_some() {
+                SIGNAL_OCHRE
+            } else {
+                rule_color()
+            },
+        ),
         egui::StrokeKind::Inside,
     );
     p.rect_filled(
@@ -540,13 +587,28 @@ pub fn command_bar(
         .on_hover_text(
             "Multi-NIC Bandwidth Aggregation: click to bond all active network adapters across parallel workers",
         );
-    let nic_cap = if nic_bonded >= 2 { SIGNAL_COBALT } else { SIGNAL_STEEL };
-    let nic_bg = if nic_resp.hovered() { c.button_hot } else { field_bg };
+    let nic_cap = if nic_bonded >= 2 {
+        SIGNAL_COBALT
+    } else {
+        SIGNAL_STEEL
+    };
+    let nic_bg = if nic_resp.hovered() {
+        c.button_hot
+    } else {
+        field_bg
+    };
     p.rect_filled(nic_rect, 0.0, nic_bg);
     p.rect_stroke(
         nic_rect,
         0.0,
-        Stroke::new(1.0, if nic_bonded >= 2 { SIGNAL_COBALT } else { rule_color() }),
+        Stroke::new(
+            1.0,
+            if nic_bonded >= 2 {
+                SIGNAL_COBALT
+            } else {
+                rule_color()
+            },
+        ),
         egui::StrokeKind::Inside,
     );
     p.rect_filled(
@@ -561,14 +623,21 @@ pub fn command_bar(
         nic_x + 3.0 + ((nic_w - 3.0 - nlw) * 0.5).max(4.0),
         cy + 16.0,
         &nic_label,
-        if nic_bonded >= 2 { primary_ink() } else { muted_ink() },
+        if nic_bonded >= 2 {
+            primary_ink()
+        } else {
+            muted_ink()
+        },
     );
     if nic_resp.clicked() {
         ev = Some(CommandBarEvent::ToggleMultiNic);
     }
 
     // Draw UNPACK (AntiCompress 1× disk streaming unpack & auto-folder) pill
-    let unpack_rect = winui::rect(Rect::from_min_size(pos2(unpack_x, cy), vec2(unpack_w, ctrl_h)));
+    let unpack_rect = winui::rect(Rect::from_min_size(
+        pos2(unpack_x, cy),
+        vec2(unpack_w, ctrl_h),
+    ));
     let unpack_resp = ui
         .interact(
             unpack_rect,
@@ -578,13 +647,28 @@ pub fn command_bar(
         .on_hover_text(
             "AntiCompress 1× Disk Stream Unpack: streams .zip/.tar.*/.acpkg straight to folder and auto-extracts & cleans multi-part .rar/.7z",
         );
-    let unpack_cap = if stream_unpack { SIGNAL_EMERALD } else { SIGNAL_STEEL };
-    let unpack_bg = if unpack_resp.hovered() { c.button_hot } else { field_bg };
+    let unpack_cap = if stream_unpack {
+        SIGNAL_EMERALD
+    } else {
+        SIGNAL_STEEL
+    };
+    let unpack_bg = if unpack_resp.hovered() {
+        c.button_hot
+    } else {
+        field_bg
+    };
     p.rect_filled(unpack_rect, 0.0, unpack_bg);
     p.rect_stroke(
         unpack_rect,
         0.0,
-        Stroke::new(1.0, if stream_unpack { SIGNAL_EMERALD } else { rule_color() }),
+        Stroke::new(
+            1.0,
+            if stream_unpack {
+                SIGNAL_EMERALD
+            } else {
+                rule_color()
+            },
+        ),
         egui::StrokeKind::Inside,
     );
     p.rect_filled(
@@ -599,7 +683,11 @@ pub fn command_bar(
         unpack_x + 3.0 + ((unpack_w - 3.0 - ulw) * 0.5).max(4.0),
         cy + 16.0,
         unpack_label,
-        if stream_unpack { primary_ink() } else { muted_ink() },
+        if stream_unpack {
+            primary_ink()
+        } else {
+            muted_ink()
+        },
     );
     if unpack_resp.clicked() {
         ev = Some(CommandBarEvent::ToggleStreamUnpack);
@@ -613,9 +701,17 @@ pub fn command_bar(
     let add_box_w = (add_total_w - go_w).max(100.0);
 
     let add_x = o.x + pad;
-    let add_box_rect = winui::rect(Rect::from_min_size(pos2(add_x, cy), vec2(add_box_w, ctrl_h)));
+    let add_box_rect = winui::rect(Rect::from_min_size(
+        pos2(add_x, cy),
+        vec2(add_box_w, ctrl_h),
+    ));
     p.rect_filled(add_box_rect, 0.0, field_bg);
-    p.rect_stroke(add_box_rect, 0.0, Stroke::new(1.0, rule_color()), egui::StrokeKind::Inside);
+    p.rect_stroke(
+        add_box_rect,
+        0.0,
+        Stroke::new(1.0, rule_color()),
+        egui::StrokeKind::Inside,
+    );
     p.rect_filled(
         winui::rect(Rect::from_min_size(pos2(add_x, cy), vec2(3.0, ctrl_h))),
         0.0,
@@ -675,7 +771,11 @@ pub fn command_bar(
         go_x + (go_w - gw) * 0.5,
         cy + 16.0,
         "GO",
-        if has_add { c.button_accent_text } else { muted_ink() },
+        if has_add {
+            c.button_accent_text
+        } else {
+            muted_ink()
+        },
     );
     if (enter_add || go_resp.clicked()) && has_add {
         let submitted = std::mem::take(add_buf);
@@ -727,7 +827,11 @@ pub fn command_bar(
             flt_x + filter_w - 13.0,
             cy + 16.0,
             "×",
-            if clr_resp.hovered() { primary_ink() } else { muted_ink() },
+            if clr_resp.hovered() {
+                primary_ink()
+            } else {
+                muted_ink()
+            },
         );
         if clr_resp.clicked() {
             filter_buf.clear();
@@ -756,7 +860,8 @@ fn draw_pulsar_plot(p: &egui::Painter, rect: Rect, pulse: &PulseHistory) {
         let base_y = (rect.top() + 10.0 + t_row * (rect.height() - 14.0)).round() + 0.5;
         let weight = 1.0 - t_row * 0.55;
         let alpha = ((235.0 - t_row * 135.0) as u8).max(70);
-        let stroke_col = Color32::from_rgba_unmultiplied(base_ink.r(), base_ink.g(), base_ink.b(), alpha);
+        let stroke_col =
+            Color32::from_rgba_unmultiplied(base_ink.r(), base_ink.g(), base_ink.b(), alpha);
         let mut pts = Vec::with_capacity(n);
         let mut any_signal = false;
 
@@ -768,8 +873,8 @@ fn draw_pulsar_plot(p: &egui::Painter, rect: Rect, pulse: &PulseHistory) {
             let amp = if norm > 0.002 {
                 any_signal = true;
                 // Sharp harmonic modulation across the 5 stacked traces for unsmoothed plotter feel.
-                let harmonic = 0.65
-                    + 0.35 * ((u * 29.0 + row as f32 * 1.7 + pulse.phase).sin().abs());
+                let harmonic =
+                    0.65 + 0.35 * ((u * 29.0 + row as f32 * 1.7 + pulse.phase).sin().abs());
                 norm * env * harmonic * 24.0 * weight
             } else {
                 // Quiet architectural standby pulse (tiny crisp central needle ridge, never loud).
@@ -838,11 +943,25 @@ pub fn catalog_rail(
     let panel = Rect::from_min_max(pos2(o.x, top), pos2(right, bottom));
     p.rect_filled(winui::rect(panel), 0.0, c.tree);
     // Single crisp 1px vertical right rule dividing rail from the transfer list.
-    fill(&p, right - 1.0, top, right - 1.0, bottom - 1.0, rule_color());
+    fill(
+        &p,
+        right - 1.0,
+        top,
+        right - 1.0,
+        bottom - 1.0,
+        rule_color(),
+    );
 
     // Rail header strip: wide-tracked uppercase "CATALOG" + quiet close button.
     let head_font = FontId::new(10.0, egui::FontFamily::Name("segoe-bold".into()));
-    text_font(&p, head_font, o.x + 16.0, top + 19.0, "CATALOG", muted_ink());
+    text_font(
+        &p,
+        head_font,
+        o.x + 16.0,
+        top + 19.0,
+        "CATALOG",
+        muted_ink(),
+    );
     fill(
         &p,
         o.x,
@@ -858,7 +977,11 @@ pub fn catalog_rail(
         vec2(20.0, 20.0),
     ));
     let cr = ui
-        .interact(close_rc, egui::Id::unique("saville-rail-close"), winui::pointer_only())
+        .interact(
+            close_rc,
+            egui::Id::unique("saville-rail-close"),
+            winui::pointer_only(),
+        )
         .on_hover_text(crate::i18n::t("Close"));
     if cr.hovered() {
         p.rect_filled(close_rc, 0.0, c.subtle_hot);
@@ -911,7 +1034,8 @@ pub fn catalog_rail(
         if ry + RAIL_ROW_H < area.top() || ry > area.bottom() {
             continue;
         }
-        let row_rect_en = Rect::from_min_size(pos2(area.left(), ry), vec2(area.width(), RAIL_ROW_H));
+        let row_rect_en =
+            Rect::from_min_size(pos2(area.left(), ry), vec2(area.width(), RAIL_ROW_H));
         let row_rc = winui::rect(row_rect_en);
         let resp = ui.interact(
             row_rc.intersect(winui::rect(area)),
@@ -926,7 +1050,10 @@ pub fn catalog_rail(
         if row.selected {
             tp.rect_filled(row_rc, 0.0, c.selection);
             // 3px solid Saville signal edge bar on the active category.
-            let bar_rc = winui::rect(Rect::from_min_size(pos2(area.left(), ry), vec2(3.0, RAIL_ROW_H)));
+            let bar_rc = winui::rect(Rect::from_min_size(
+                pos2(area.left(), ry),
+                vec2(3.0, RAIL_ROW_H),
+            ));
             tp.rect_filled(bar_rc, 0.0, SIGNAL_EMBER);
         } else if resp.hovered() {
             tp.rect_filled(row_rc, 0.0, c.menu_hot);
@@ -937,8 +1064,18 @@ pub fn catalog_rail(
         // Optional expand/collapse caret for branches.
         if let Some(open) = row.expander {
             let glyph = if open { "▾" } else { "▸" };
-            let exp_rc = winui::rect(Rect::from_min_size(pos2(x - 10.0, ry), vec2(14.0, RAIL_ROW_H)));
-            text_font(&tp, cnt_font.clone(), x - 8.0, ry + 18.0, glyph, muted_ink());
+            let exp_rc = winui::rect(Rect::from_min_size(
+                pos2(x - 10.0, ry),
+                vec2(14.0, RAIL_ROW_H),
+            ));
+            text_font(
+                &tp,
+                cnt_font.clone(),
+                x - 8.0,
+                ry + 18.0,
+                glyph,
+                muted_ink(),
+            );
             if resp.clicked()
                 && resp
                     .interact_pointer_pos()
@@ -981,7 +1118,11 @@ pub fn catalog_rail(
                 area.right() - 12.0 - cw,
                 ry + 18.5,
                 &cs,
-                if row.selected { primary_ink() } else { muted_ink() },
+                if row.selected {
+                    primary_ink()
+                } else {
+                    muted_ink()
+                },
             );
         }
         if keys && row.selected {
@@ -1043,12 +1184,7 @@ pub fn protocol_blocks(
 }
 
 /// Draw razor-thin 2px embedded Saville progress hairline along the bottom of the Status cell.
-pub fn inline_progress(
-    p: &egui::Painter,
-    cell: Rect,
-    frac: f64,
-    status_group: &str,
-) {
+pub fn inline_progress(p: &egui::Painter, cell: Rect, frac: f64, status_group: &str) {
     let frac = frac.clamp(0.0, 1.0) as f32;
     let track_l = cell.left() + 6.0;
     let track_r = cell.right() - 8.0;
@@ -1056,7 +1192,10 @@ pub fn inline_progress(
         return;
     }
     let bar_y = (cell.bottom() - 6.0).round();
-    let track = winui::rect(Rect::from_min_max(pos2(track_l, bar_y), pos2(track_r, bar_y + 2.0)));
+    let track = winui::rect(Rect::from_min_max(
+        pos2(track_l, bar_y),
+        pos2(track_r, bar_y + 2.0),
+    ));
     p.rect_filled(track, 0.0, crate::theme::colors().progress_track);
     let fill_w = ((track_r - track_l) * frac).round();
     if fill_w > 0.0 {
@@ -1072,13 +1211,7 @@ pub fn inline_progress(
 }
 
 /// Clean matte-black Saville empty state for the download list.
-pub fn empty_state(
-    ui: &Ui,
-    body: Rect,
-    title: &str,
-    why: &str,
-    action: &str,
-) -> bool {
+pub fn empty_state(ui: &Ui, body: Rect, title: &str, why: &str, action: &str) -> bool {
     let p = ui.painter();
     let c = crate::theme::colors();
     let title_font = FontId::new(18.0, egui::FontFamily::Name("segoe-bold".into()));
@@ -1110,7 +1243,11 @@ pub fn empty_state(
     let bx = cx - bw * 0.5;
     let by = y + 22.0;
     let rc = winui::rect(Rect::from_min_size(pos2(bx, by), vec2(bw, bh)));
-    let resp = ui.interact(rc, egui::Id::unique("saville-empty-action"), winui::pointer_only());
+    let resp = ui.interact(
+        rc,
+        egui::Id::unique("saville-empty-action"),
+        winui::pointer_only(),
+    );
     winui::expose(&resp, egui::Role::Button, action, true, None);
     let fill_col = if resp.is_pointer_button_down_on() {
         c.button_accent_pressed
@@ -1150,7 +1287,7 @@ pub fn footer_bar(
     let top = o.y + h - FOOTER_H;
     let rc = Rect::from_min_max(pos2(o.x, top), pos2(o.x + w, o.y + h));
     p.rect_filled(winui::rect(rc), 0.0, bar_bg());
-    fill(&p, o.x, top, o.x + w - 1.0, top, rule_color());
+    fill(p, o.x, top, o.x + w - 1.0, top, rule_color());
 
     let strip = ui.interact(
         winui::rect(rc),
@@ -1172,9 +1309,16 @@ pub fn footer_bar(
     let font = FontId::new(11.0, egui::FontFamily::Name("segoe".into()));
     let baseline = top + 19.0;
     // Small status indicator square on the left.
-    let dot_col = if limiter_on { SIGNAL_OCHRE } else { SIGNAL_EMERALD };
+    let dot_col = if limiter_on {
+        SIGNAL_OCHRE
+    } else {
+        SIGNAL_EMERALD
+    };
     p.rect_filled(
-        winui::rect(Rect::from_min_size(pos2(o.x + 14.0, top + 12.0), vec2(6.0, 6.0))),
+        winui::rect(Rect::from_min_size(
+            pos2(o.x + 14.0, top + 12.0),
+            vec2(6.0, 6.0),
+        )),
         0.0,
         dot_col,
     );
@@ -1190,7 +1334,11 @@ pub fn footer_bar(
             o.x + w - 16.0 - rw,
             baseline,
             &r_up,
-            if limiter_on { SIGNAL_OCHRE } else { primary_ink() },
+            if limiter_on {
+                SIGNAL_OCHRE
+            } else {
+                primary_ink()
+            },
         );
     }
 }

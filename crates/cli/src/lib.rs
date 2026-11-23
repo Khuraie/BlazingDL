@@ -9,9 +9,9 @@ use std::process::ExitCode;
 use std::time::{Duration, Instant};
 
 use anyhow::Context;
-use clap::{Parser, Subcommand};
 use blazingdl_engine::download::{ConnStatus, MAX_CONNECTIONS_UNLOCKED, State};
 use blazingdl_engine::{Destination, Download, Options, Proxy, Request};
+use clap::{Parser, Subcommand};
 use reqwest::header::{COOKIE, HeaderMap, HeaderName, HeaderValue, REFERER, USER_AGENT};
 use serde_json::json;
 
@@ -789,7 +789,9 @@ fn pair(json: bool) -> anyhow::Result<()> {
         ..Default::default()
     })
     .map_err(|e| anyhow::anyhow!("BlazingDL isn't running ({e})"))?;
-    match blazingdl_ipc::api::parse::<blazingdl_ipc::api::PairAnswer>(&answer).map_err(anyhow::Error::msg)? {
+    match blazingdl_ipc::api::parse::<blazingdl_ipc::api::PairAnswer>(&answer)
+        .map_err(anyhow::Error::msg)?
+    {
         Ok(a) => {
             println!("{}", a.qr);
             println!(
@@ -1192,7 +1194,8 @@ async fn run(cmd: Cmd, json: bool, accounts: Option<&dyn Accounts>) -> anyhow::R
             watch(Download::start(req, opts), json).await
         }
         Cmd::InstallYtdlp { .. } => {
-            let dir = blazingdl_tools::tools_dir().ok_or_else(|| anyhow::anyhow!("no data folder"))?;
+            let dir =
+                blazingdl_tools::tools_dir().ok_or_else(|| anyhow::anyhow!("no data folder"))?;
             let i = blazingdl_tools::install_latest(&dir, &own_net(), None).await?;
             if json {
                 emit(json!({ "tool": "yt-dlp", "version": i.version, "path": i.exe }));
@@ -1206,7 +1209,8 @@ async fn run(cmd: Cmd, json: bool, accounts: Option<&dyn Accounts>) -> anyhow::R
             Ok(())
         }
         Cmd::InstallFfmpeg { .. } => {
-            let dir = blazingdl_tools::tools_dir().ok_or_else(|| anyhow::anyhow!("no data folder"))?;
+            let dir =
+                blazingdl_tools::tools_dir().ok_or_else(|| anyhow::anyhow!("no data folder"))?;
             let i = blazingdl_tools::ffmpeg::install_latest(&dir, &own_net(), None).await?;
             if json {
                 emit(json!({ "tool": "ffmpeg", "version": i.version, "path": i.exe }));
@@ -1220,7 +1224,8 @@ async fn run(cmd: Cmd, json: bool, accounts: Option<&dyn Accounts>) -> anyhow::R
             Ok(())
         }
         Cmd::InstallJsRuntime { .. } => {
-            let dir = blazingdl_tools::tools_dir().ok_or_else(|| anyhow::anyhow!("no data folder"))?;
+            let dir =
+                blazingdl_tools::tools_dir().ok_or_else(|| anyhow::anyhow!("no data folder"))?;
             let i = blazingdl_tools::jsruntime::install_latest(&dir, &own_net(), None).await?;
             // What yt-dlp uses: the one just installed, unless one was chosen or found first.
             let used = blazingdl_tools::jsruntime::current(Some(dir.as_path()), None);
@@ -1254,7 +1259,8 @@ async fn run(cmd: Cmd, json: bool, accounts: Option<&dyn Accounts>) -> anyhow::R
         }
         Cmd::UpdateHelpers { .. } => update_helpers(json).await,
         Cmd::InstallGalleryDl { .. } => {
-            let dir = blazingdl_tools::tools_dir().ok_or_else(|| anyhow::anyhow!("no data folder"))?;
+            let dir =
+                blazingdl_tools::tools_dir().ok_or_else(|| anyhow::anyhow!("no data folder"))?;
             let i = blazingdl_tools::gallery::install_latest(&dir, &own_net(), None).await?;
             if json {
                 emit(json!({ "tool": "gallery-dl", "version": i.version, "path": i.exe }));
@@ -1271,7 +1277,8 @@ async fn run(cmd: Cmd, json: bool, accounts: Option<&dyn Accounts>) -> anyhow::R
             url, output, limit, ..
         } => {
             use blazingdl_tools::video::State;
-            let dir = blazingdl_tools::tools_dir().ok_or_else(|| anyhow::anyhow!("no data folder"))?;
+            let dir =
+                blazingdl_tools::tools_dir().ok_or_else(|| anyhow::anyhow!("no data folder"))?;
             // A gallery-dl of the person's too old for BlazingDL is passed over (#236), said plainly.
             let old = blazingdl_tools::gallery::chosen_too_old(&dir).map(|old| {
                 format!(
@@ -1282,7 +1289,9 @@ async fn run(cmd: Cmd, json: bool, accounts: Option<&dyn Accounts>) -> anyhow::R
                 )
             });
             let tool = blazingdl_tools::gallery::installed(&dir).ok_or_else(|| match &old {
-                Some(why) => anyhow::anyhow!("{why}; run install-gallery-dl for BlazingDL's own copy"),
+                Some(why) => {
+                    anyhow::anyhow!("{why}; run install-gallery-dl for BlazingDL's own copy")
+                }
                 None => anyhow::anyhow!("gallery-dl is not installed: run install-gallery-dl"),
             })?;
             if let Some(why) = &old {
@@ -1337,7 +1346,8 @@ async fn run(cmd: Cmd, json: bool, accounts: Option<&dyn Accounts>) -> anyhow::R
             }
         }
         Cmd::VideoInfo { url, .. } => {
-            let dir = blazingdl_tools::tools_dir().ok_or_else(|| anyhow::anyhow!("no data folder"))?;
+            let dir =
+                blazingdl_tools::tools_dir().ok_or_else(|| anyhow::anyhow!("no data folder"))?;
             let tool = blazingdl_tools::installed(&dir)
                 .ok_or_else(|| anyhow::anyhow!("yt-dlp is not installed (install-ytdlp)"))?;
             // The page's own declared video when yt-dlp read it generically (#1076).
@@ -1396,7 +1406,8 @@ async fn run(cmd: Cmd, json: bool, accounts: Option<&dyn Accounts>) -> anyhow::R
         Cmd::PlaylistInfo {
             url, from, count, ..
         } => {
-            let dir = blazingdl_tools::tools_dir().ok_or_else(|| anyhow::anyhow!("no data folder"))?;
+            let dir =
+                blazingdl_tools::tools_dir().ok_or_else(|| anyhow::anyhow!("no data folder"))?;
             let tool = blazingdl_tools::installed(&dir)
                 .ok_or_else(|| anyhow::anyhow!("yt-dlp is not installed (install-ytdlp)"))?;
             let to = count.map(|c| from + c.max(1) - 1);
@@ -1456,7 +1467,8 @@ async fn run(cmd: Cmd, json: bool, accounts: Option<&dyn Accounts>) -> anyhow::R
             count,
             ..
         } => {
-            let dir = blazingdl_tools::tools_dir().ok_or_else(|| anyhow::anyhow!("no data folder"))?;
+            let dir =
+                blazingdl_tools::tools_dir().ok_or_else(|| anyhow::anyhow!("no data folder"))?;
             let tool = blazingdl_tools::installed(&dir)
                 .ok_or_else(|| anyhow::anyhow!("yt-dlp is not installed (install-ytdlp)"))?;
             let ffmpeg = blazingdl_tools::ffmpeg::installed(&dir).map(|f| f.exe);
@@ -1675,7 +1687,8 @@ async fn run(cmd: Cmd, json: bool, accounts: Option<&dyn Accounts>) -> anyhow::R
             ..
         } => {
             let subs = subs_arg(&subs, auto_subs, embed_subs);
-            let dir = blazingdl_tools::tools_dir().ok_or_else(|| anyhow::anyhow!("no data folder"))?;
+            let dir =
+                blazingdl_tools::tools_dir().ok_or_else(|| anyhow::anyhow!("no data folder"))?;
             let tool = blazingdl_tools::installed(&dir)
                 .ok_or_else(|| anyhow::anyhow!("yt-dlp is not installed (install-ytdlp)"))?;
             // The page's own declared video when yt-dlp read it generically (#1076): the one
@@ -1710,7 +1723,8 @@ async fn run(cmd: Cmd, json: bool, accounts: Option<&dyn Accounts>) -> anyhow::R
             };
             // A stem no file in the folder has, whatever the extension: yt-dlp takes any
             // `<stem>.*` there as its own (#32). The extension only sizes the name.
-            let ext = blazingdl_tools::resolve::audio_conversion(&format).map_or("mp4", |a| a.format);
+            let ext =
+                blazingdl_tools::resolve::audio_conversion(&format).map_or("mp4", |a| a.format);
             let name = format!("{}.{ext}", blazingdl_engine::naming::sanitize(&v.title));
             let free = blazingdl_engine::naming::stem_destination(&output, &name, |_| false);
             let stem = free
@@ -1764,7 +1778,8 @@ async fn run(cmd: Cmd, json: bool, accounts: Option<&dyn Accounts>) -> anyhow::R
                 if !json
                     && matches!(
                         p.state,
-                        blazingdl_tools::video::State::Failed(_) | blazingdl_tools::video::State::Stopped
+                        blazingdl_tools::video::State::Failed(_)
+                            | blazingdl_tools::video::State::Stopped
                     )
                 {
                     eprintln!();
@@ -2421,9 +2436,9 @@ async fn torrents() -> anyhow::Result<(blazingdl_torrent::Torrents, tempfile::Te
 fn torrent_source(s: &str) -> anyhow::Result<blazingdl_torrent::Source> {
     match blazingdl_torrent::Source::magnet(s) {
         Some(m) => Ok(m),
-        None => Ok(blazingdl_torrent::Source::File(blazingdl_torrent::read_file(
-            std::path::Path::new(s),
-        )?)),
+        None => Ok(blazingdl_torrent::Source::File(
+            blazingdl_torrent::read_file(std::path::Path::new(s))?,
+        )),
     }
 }
 
@@ -2486,7 +2501,11 @@ mod tests {
         let c = Conn::of(&cmd(&["get", "http://a.test/f"]), &net);
         assert_eq!(
             (c.proxy, c.dns, c.route),
-            (net.proxy.clone(), net.dns.clone(), blazingdl_engine::Route::Any)
+            (
+                net.proxy.clone(),
+                net.dns.clone(),
+                blazingdl_engine::Route::Any
+            )
         );
         let c = Conn::of(
             &cmd(&[
@@ -2529,7 +2548,11 @@ mod tests {
         let c = Conn::of(&cmd(&["resume", "file.mdm.json"]), &net);
         assert_eq!(
             (c.proxy, c.dns, c.route),
-            (net.proxy.clone(), net.dns.clone(), blazingdl_engine::Route::Any)
+            (
+                net.proxy.clone(),
+                net.dns.clone(),
+                blazingdl_engine::Route::Any
+            )
         );
         let c = Conn::of(
             &cmd(&[
@@ -3248,7 +3271,10 @@ mod tests {
         ) -> std::pin::Pin<
             Box<
                 dyn std::future::Future<
-                        Output = Result<Option<blazingdl_engine::Unlocked>, blazingdl_engine::ServiceFault>,
+                        Output = Result<
+                            Option<blazingdl_engine::Unlocked>,
+                            blazingdl_engine::ServiceFault,
+                        >,
                     > + Send
                     + 'a,
             >,
@@ -3309,8 +3335,7 @@ mod tests {
         assert!(matches!(cli.cmd, Cmd::Pair));
         assert!(!cli.json);
 
-        let cli_json =
-            Cli::try_parse_from(["blazingdl-cli", "--json", "pair"]).unwrap();
+        let cli_json = Cli::try_parse_from(["blazingdl-cli", "--json", "pair"]).unwrap();
         assert!(matches!(cli_json.cmd, Cmd::Pair));
         assert!(cli_json.json);
     }
