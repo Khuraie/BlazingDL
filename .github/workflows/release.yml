@@ -204,9 +204,10 @@ jobs:
         env:
           AMO: ${{ secrets.AMO_JWT_ISSUER }}
           CWS: ${{ secrets.CWS_REFRESH_TOKEN }}
+          CWS_ID: ${{ secrets.CWS_EXTENSION_ID }}
         run: |
           echo "amo=$([ -n "$AMO" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
-          echo "cws=$([ -n "$CWS" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          echo "cws=$([ -n "$CWS" ] && [ -n "$CWS_ID" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -258,7 +259,7 @@ jobs:
 
       # Upload to Chrome Web Store when CWS_EXTENSION_ID + OAuth secrets are configured.
       - name: Send the extension to the Chrome Web Store
-        if: ${{ startsWith(github.ref, 'refs/tags/') && steps.keys.outputs.cws == 'true' && secrets.CWS_EXTENSION_ID != '' }}
+        if: ${{ startsWith(github.ref, 'refs/tags/') && steps.keys.outputs.cws == 'true' }}
         continue-on-error: true
         env:
           CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
