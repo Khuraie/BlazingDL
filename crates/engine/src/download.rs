@@ -3668,8 +3668,7 @@ impl FirstAsk<'_> {
         let (shared, cancel) = (self.shared, self.cancel);
         let host = url.host_str().unwrap_or("?");
         shared.event(format!(
-            "{host}: refused the way a browser connects too; asking once more as Mister \
-             Download Manager itself ({own})"
+            "{host}: refused the way a browser connects too; asking once more as BlazingDL itself ({own})"
         ));
         let opts = speaking_own(opts, own);
         let client = client(&opts, url, self.as_get, self.seen)?;
