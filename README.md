@@ -16,6 +16,7 @@
   <a href="#key-features">Features</a> ·
   <a href="#engine-pipeline">Architecture</a> ·
   <a href="#quick-add--shortcuts">Quick-Add</a> ·
+  <a href="#current-beta-limitations">Limitations</a> ·
   <a href="#building-from-source">Build</a>
 </p>
 
@@ -243,6 +244,18 @@ Array indices `0..23` correspond to local hours (`null` = unlimited, integer = K
 | `blazingdl-extract` | 300+ GB 1× disk streaming unpack (ZIP64, parallel STORE, `.tar.*`, `.acpkg`), local `.zst`/archive extraction &amp; integrity check |
 | `blazingdl-crash` | Crash/freeze monitor & minidump symbolicator (`blazingdl-symbolicate`) |
 | `blazingdl-debrid`, `blazingdl-cnl`, `blazingdl-geo`, `blazingdl-labserver` | Debrid hosts, Click'n'Load, offline IP-to-country, fault-injection lab server |
+
+---
+
+## Current Beta Limitations
+
+BlazingDL is functional and test-verified across Windows, Linux, and macOS, with a few distribution/packaging items still in progress:
+
+- **Unsigned binaries (Windows & macOS):** Releases are not yet code-signed, so first launch may trigger a Windows SmartScreen or macOS Gatekeeper prompt. Verify downloads against the release `SHA256SUMS.txt`.
+- **Browser extension store approvals pending:** Firefox AMO signing and the Chrome Web Store listing are not live yet. Until approved, install Chromium via **Load unpacked** (`-extension-chromium.zip`) and Firefox via `about:debugging` (`blazingdl-firefox.xpi`, or permanently on Firefox Developer Edition / Nightly / LibreWolf).
+- **In-app auto-updater signing key:** `Help → Check for updates` currently verifies signatures against the upstream release key (`crates/tools/keys/mdm-release.asc`) and will not auto-install BlazingDL releases until rotated to BlazingDL's own release key. Download updates directly from [GitHub Releases](https://github.com/Khuraie/BlazingDL/releases) in the meantime.
+- **1× Disk Stream Unpack format scope:** True 1× streaming applies to **`.zip` / ZIP64**, **`.tar` / `.tar.gz` / `.tar.xz` / `.tar.zst`**, and **`.acpkg` v1** on servers supporting HTTP `Range` (final disk usage equals the *uncompressed* size). Encrypted archives, non-`Range` servers, and `.rar` / `.7z` archives fall back cleanly to standard download + local extraction (via 7-Zip or HatchZip).
+- **Optional BoringSSL (`browser-connection`) on local builds:** Local builds with `--no-default-features` omit BoringSSL TLS browser-fingerprint impersonation (needed only for strict bot-gated/Cloudflare hosts); GitHub Actions release builds compile with default features enabled.
 
 ---
 

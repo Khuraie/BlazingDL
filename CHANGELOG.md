@@ -3,6 +3,20 @@
 Each release's notes on GitHub come from its section here (`## [X.Y.Z]`, see
 `.github/workflows/release.yml`).
 
+## [0.5.3] - 2026-11-25
+
+### Added
+
+- **300+ GB 1× Disk Stream Unpack (`.zip`/ZIP64, `.tar.*`, `.acpkg` v1):** zero-OOM streaming unpack (`<512 KiB`/worker RAM) across Quick-Add, `+ ADD URL`, and Browser captures (including extensionless signed CDN links), with parallel multi-connection ZIP `STORE` slicing, O(1) instant Pause → Resume, `crc32fast` verification, full engine HTTP transport (Cookies, Auth, Proxy/PAC, DNS, Multi-NIC `Route::Aggregate`), and transparent auto-fallback on non-`Range` or encrypted archives.
+- **Saville Catalog Pulse Progress Window & Browser Extension:** redesigned download progress window (live `PULSE` sparkline, 2×4 telemetry matrix, server Geo/RTT, per-worker speeds, `Log` tab) and matching Saville-styled floating video overlay and toolbar popup.
+- **Live Transfer Table `Job::Unpack` & BlazingDL Options tab:** dedicated live progress rows for streaming unpacks and consolidated BlazingDL settings.
+
+### Fixed
+
+- **Engine speed-limited hedging:** disabled `hedge_tail` under active speed limits and preserved uncommitted claimed bytes in `Planner::preempt_slow_tail`, fixing double-counted limiter bytes and overlapping writes.
+- **UI-thread disk responsiveness:** moved sibling checksum manifest probing (`find_sibling_checksum`) off the UI thread onto background workers so unreachable network shares never stall starting or finishing downloads.
+- **macOS Safari extension & Linux packaging:** updated Safari extension relay/entitlements/Info.plist to `blazingdl-nmhost` / `BLAZINGDL_DATA_DIR`, fixed the Linux tarball `.xpi` path and AppImage zsync update URL, and updated Windows unit test fixtures and release workflow guards.
+
 ## [Unreleased]
 
 ### Added
