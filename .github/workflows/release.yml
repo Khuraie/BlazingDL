@@ -256,19 +256,16 @@ jobs:
             exit 1
           }
 
-      # The extension is listed in the Chrome Web Store (ejoleppdfgjdndddcjoehopknmlglojp,
-      # crates/ipc STORE_ID): each release's zip is uploaded and sent for review (not waited for);
-      # Chrome, Edge, Brave, Opera and Vivaldi update from the listing. A store refusal (a version
-      # it has already) never fails the release.
+      # Upload to Chrome Web Store when CWS_EXTENSION_ID + OAuth secrets are configured.
       - name: Send the extension to the Chrome Web Store
-        if: ${{ startsWith(github.ref, 'refs/tags/') && steps.keys.outputs.cws == 'true' }}
+        if: ${{ startsWith(github.ref, 'refs/tags/') && steps.keys.outputs.cws == 'true' && secrets.CWS_EXTENSION_ID != '' }}
         continue-on-error: true
         env:
           CLIENT_ID: ${{ secrets.CWS_CLIENT_ID }}
           CLIENT_SECRET: ${{ secrets.CWS_CLIENT_SECRET }}
           REFRESH_TOKEN: ${{ secrets.CWS_REFRESH_TOKEN }}
           PUBLISHER_ID: ${{ secrets.CWS_PUBLISHER_ID }}
-          EXTENSION_ID: ejoleppdfgjdndddcjoehopknmlglojp
+          EXTENSION_ID: ${{ secrets.CWS_EXTENSION_ID }}
         run: ./tools/release/node_modules/.bin/chrome-webstore-upload --source target/extension/blazingdl-chrome-store.zip
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -472,8 +469,8 @@ jobs:
           $m = [regex]::Match("$log", "(?ms)^## \[$([regex]::Escape($v))\][^\n]*\n(.*?)(?=^## |\z)")
           $title = "BlazingDL ${{ github.ref_name }}"
           $stores = "**The browser add-on:** [Add to Firefox](https://addons.mozilla.org/firefox/addon/blazingdl/) " +
-            "(Zen, LibreWolf too) · [Add to Chrome, Edge, Brave, Opera, Vivaldi](https://chromewebstore.google.com/detail/blazingdl/ejoleppdfgjdndddcjoehopknmlglojp). " +
-            "The stores' copy updates itself; ``-extension-chromium.zip`` is only for a Chromium browser that can't use its store.`n`n"
+            "(Zen, LibreWolf too). For Chromium browsers (Chrome, Edge, Brave, Opera, Vivaldi), " +
+            "unzip ``-extension-chromium.zip`` and load unpacked.`n`n"
           $invite = ""
           if ($files.Name -like "*-experimental*") {
             $invite = "**On a Mac?** The ``-experimental`` files are fresh builds for Mac " +
@@ -503,9 +500,10 @@ jobs:
             Set-Content -Encoding utf8 notes.md ($stores + $invite + $thanks.Trim())
             gh release create "${{ github.ref_name }}" --latest --title $title --notes-file notes.md --generate-notes $all
           }
-          # The website links to the latest published release: rebuild it now that the files are
-          # there (a release made with this token starts no workflow by itself).
-          gh workflow run pages.yml --ref main
+          # Rebuild Pages if a pages.yml workflow exists in this repository.
+          if (Test-Path ".github/workflows/pages.yml") {
+            gh workflow run pages.yml --ref main
+          }
 
   docker:
     # A published Docker image for servers and NAS systems (docs/server.md, Dockerfile).

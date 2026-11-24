@@ -257,8 +257,23 @@ impl Planner {
                         .is_some_and(|owner| owner != w && slow_workers.contains(&owner))
             })
             .max_by_key(|(_, s)| s.unclaimed())?;
-        let pre = self.segs[i].worker;
-        Some(self.give(i, w, pre))
+        let seg = self.segs[i];
+        let pre = seg.worker;
+        if seg.reserved == seg.cursor {
+            return Some(self.give(i, w, pre));
+        }
+        // Keep the slow worker's already-claimed bytes intact so it never double-pays the
+        // speed limiter or races on overlapping disk writes; hand only the unclaimed tail to `w`.
+        let mid = seg.reserved;
+        let end = seg.end;
+        self.segs[i].end = mid;
+        self.segs.insert(i + 1, fresh(mid, end, Some(w)));
+        Some(Assignment {
+            from: mid,
+            to: end,
+            written: 0,
+            preempted: pre,
+        })
     }
 
     /// How many bytes worker `w` may still fetch from `at` before its segment ends (the end

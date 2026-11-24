@@ -1441,6 +1441,9 @@ pub struct App {
     /// The unfinished downloads' resume states, read beside the window at start
     /// (`read_resume_states`).
     state_reads: crate::resumeread::StateReads,
+    /// Sibling checksum manifests discovered off the UI thread (`App::start`).
+    sibling_tx: std::sync::mpsc::Sender<(u64, blazingdl_engine::verify::Hash)>,
+    sibling_rx: std::sync::mpsc::Receiver<(u64, blazingdl_engine::verify::Hash)>,
     /// Videos' places, looked at beside the window; their starts waiting for them.
     video_places: crate::videoplace::VideoPlaces,
     /// Add category / Properties from the Categories tree.
@@ -2172,6 +2175,7 @@ impl App {
             .filter(|i| i.status == Status::Complete && i.rename_on_complete.is_some())
             .map(|i| i.id)
             .collect();
+        let (sibling_tx, sibling_rx) = std::sync::mpsc::channel();
         App {
             rt,
             items,
@@ -2249,6 +2253,8 @@ impl App {
             }),
             gone_known: None,
             state_reads: Default::default(),
+            sibling_tx,
+            sibling_rx,
             video_places: crate::videoplace::VideoPlaces::new(std::sync::Arc::new(video_place)),
             queue_pick: None,
             drop_target: None,
@@ -4494,6 +4500,7 @@ impl App {
                     && i.gallery.is_none()
                     && i.torrent.is_none()
                     && i.remote.is_none()
+                    && i.unpack.is_none()
             })
             .map(|i| {
                 i.state_here = Some((i.dest.clone(), true));
@@ -4710,9 +4717,16 @@ impl App {
         // The file's own remembered limit, else the Speed Limiter's.
         opts.speed_limit = own_limit.or(self.settings.speed_limit());
         opts.checksum = checksum;
+        let sibling_tx = opts.checksum.is_none().then(|| self.sibling_tx.clone());
         let Some(item) = self.item(id) else { return };
-        if opts.checksum.is_none() {
-            opts.checksum = crate::automation::find_sibling_checksum(&item.dest);
+        if let Some(tx) = sibling_tx {
+            // Probe sibling manifests off the UI thread so dead shares never stall `start()`.
+            let dest = item.dest.clone();
+            rt.spawn_blocking(move || {
+                if let Some(h) = crate::automation::find_sibling_checksum(&dest) {
+                    let _ = tx.send((id, h));
+                }
+            });
         }
         if !item.mirrors.is_empty() {
             opts.mirrors = item
@@ -9552,32 +9566,40 @@ impl App {
             if !renaming {
                 // Its archive, when it is to be extracted and its last volume is in (#37).
                 self.extracts.finished(*id, &self.items, &self.settings);
-                // Smart sibling checksum auto-match + Post-Download Automation Rules / Webhooks.
-                if let Some(it) = self.items.iter_mut().find(|i| i.id == *id) {
-                    if it.checksum.is_none()
-                        && let Some(h) = crate::automation::find_sibling_checksum(&it.dest)
-                    {
-                        it.checksum = Some(h);
-                    }
-                    if !self.settings.automation_rules.is_empty() {
-                        let info = crate::automation::CompletedInfo {
-                            file_name: it.file_name.clone(),
-                            path: it.dest.clone(),
-                            url: it.url.to_string(),
-                            size: it.size.unwrap_or(it.downloaded),
-                            category: it.category.key().into_owned(),
-                        };
-                        crate::automation::run_rules_async(
-                            &self.rt,
-                            &self.settings.automation_rules,
-                            info,
-                        );
-                    }
+                // Post-Download Automation Rules / Webhooks.
+                if !self.settings.automation_rules.is_empty()
+                    && let Some(it) = self.items.iter().find(|i| i.id == *id)
+                {
+                    let info = crate::automation::CompletedInfo {
+                        file_name: it.file_name.clone(),
+                        path: it.dest.clone(),
+                        url: it.url.to_string(),
+                        size: it.size.unwrap_or(it.downloaded),
+                        category: it.category.key().into_owned(),
+                    };
+                    crate::automation::run_rules_async(
+                        &self.rt,
+                        &self.settings.automation_rules,
+                        info,
+                    );
                 }
             }
             // Finished files leave download queues (synchronization queues keep them).
             for q in self.queues.iter_mut().filter(|q| !q.sync) {
                 q.items.retain(|x| x != id);
+            }
+        }
+        while let Ok((id, h)) = self.sibling_rx.try_recv() {
+            if let Some(it) = self.items.iter_mut().find(|i| i.id == id)
+                && it.checksum.is_none()
+            {
+                if let Some(live) = &it.live
+                    && let model::Job::File(dl) = &live.dl
+                {
+                    dl.set_checksum(h.clone());
+                }
+                it.checksum = Some(h);
+                self.dirty = true;
             }
         }
         if self.extracts.poll(&mut self.items, ctx) {

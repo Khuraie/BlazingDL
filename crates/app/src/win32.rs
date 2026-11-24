@@ -5508,7 +5508,7 @@ mod torrent_handler_tests {
     #[test]
     fn an_open_command_names_its_program() {
         let exe = r"C:\Program Files\BlazingDL\blazingdl.exe";
-        let ours = r#""c:\program files\mister download manager\BlazingDL.exe" "%1""#;
+        let ours = r#""c:\program files\blazingdl\BlazingDL.exe" "%1""#;
         assert!(super::runs_program(ours, exe));
         let other = r#""C:\Program Files\qBittorrent\qbittorrent.exe" "%1""#;
         assert!(!super::runs_program(other, exe));
@@ -6394,7 +6394,7 @@ mod startup_tests {
         assert!(startup_outdated(&format!("\"{EXE}\""), exe));
         // Written by hand: unquoted, in another case, with other slashes.
         assert!(startup_outdated(
-            r"c:\program files\mister download manager\MISTERDOWNLOADMANAGER.EXE",
+            r"c:\program files\blazingdl\BLAZINGDL.EXE",
             exe
         ));
         assert!(startup_outdated(

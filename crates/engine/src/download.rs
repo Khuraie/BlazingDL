@@ -1460,6 +1460,7 @@ impl Download {
             held: Default::default(),
             checked: Default::default(),
             settle: Default::default(),
+            checksum: Default::default(),
         });
         let task = tokio::spawn(f(shared.clone(), cancel.clone()));
         Download {
@@ -1484,6 +1485,14 @@ impl Download {
 
     pub fn speed_limit(&self) -> Option<u64> {
         self.shared.limiter.get()
+    }
+
+    /// Supply an expected checksum discovered asynchronously after start (e.g. sibling manifest).
+    pub fn set_checksum(&self, hash: crate::verify::Hash) {
+        let mut slot = self.shared.checksum.lock().unwrap();
+        if slot.is_none() {
+            *slot = Some(hash);
+        }
     }
 
     pub async fn wait(self) -> Result<Outcome, Error> {
@@ -1585,6 +1594,8 @@ struct Shared {
     /// Stopped and still writing (`State::Stopping`): its place waits for it until `run` has
     /// let go of everything (#1328).
     settle: Mutex<Option<naming::Settling>>,
+    /// Checksum supplied after start (e.g. background sibling-manifest lookup).
+    checksum: Mutex<Option<crate::verify::Hash>>,
 }
 
 impl Shared {
@@ -3198,7 +3209,10 @@ async fn verify_part(
 ) -> Result<(), Error> {
     static SLOTS: tokio::sync::Semaphore = tokio::sync::Semaphore::const_new(2);
     shared.every_byte_in();
-    let Some(hash) = hash.cloned() else {
+    let hash = hash
+        .cloned()
+        .or_else(|| shared.checksum.lock().unwrap().clone());
+    let Some(hash) = hash else {
         return Ok(());
     };
     shared.set_state(State::Verifying);
@@ -4397,7 +4411,9 @@ async fn worker(ctx: Arc<Ctx>, id: WorkerId, mut first: Option<Body>) -> Result<
             .shared
             .with_planner(|p| p.assign(id, after.take()))
             .or_else(|| {
-                if !ctx.opts.hedge_tail {
+                let limited = ctx.shared.limiter.get().is_some()
+                    || ctx.opts.global.as_ref().is_some_and(|g| g.get().is_some());
+                if !ctx.opts.hedge_tail || limited {
                     return None;
                 }
                 let best = ctx.shared.best_speed.load(Ordering::Relaxed);

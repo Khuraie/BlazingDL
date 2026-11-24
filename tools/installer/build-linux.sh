@@ -91,7 +91,7 @@ plain="$stage/$name"
 mkdir -p "$plain"
 for p in "${programs[@]}"; do cp "$tree/usr/bin/$p" "$plain/"; done
 cp -r "$tree/usr/share/blazingdl/extension-chromium" "$plain/extension-chromium"
-cp "$tree/usr/share/Khuraie/BlazingDL-firefox.xpi" "$plain/"
+cp "$tree/usr/share/blazingdl/blazingdl-firefox.xpi" "$plain/"
 cp "$root/LICENSE" "$root/ATTRIBUTION.md" "$plain/"
 tar -C "$stage" -czf "$dist/$name.tar.gz" "$name"
 
@@ -193,7 +193,7 @@ chmod +x "$tool"
 # Update information (#24): AppImageLauncher, Gear Lever and AppImageUpdate read it from the
 # AppImage, find the latest release's .zsync and download only the parts that changed. BlazingDL's own
 # Update now doesn't need it. The pattern also matches the names up to 0.2.4, with "-experimental".
-update="gh-releases-zsync|anefzaoui|blazingdl|latest|BlazingDL-*-linux-$arch*.AppImage.zsync"
+update="gh-releases-zsync|Khuraie|BlazingDL|latest|BlazingDL-*-linux-$arch*.AppImage.zsync"
 # No FUSE on CI runners: the tool runs from its own extracted copy.
 # zstd at its strongest level (#25; unpacking is as fast): the tool's 128K blocks stay, as 1M
 # blocks make the AppImage start slower (AppImage/appimagetool#64).

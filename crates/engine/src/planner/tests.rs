@@ -462,3 +462,28 @@ fn preempt_slow_tail_reassigns_tail_from_slow_worker() {
     assert!(p.is_complete());
     check_invariants(&p);
 }
+
+#[test]
+fn preempt_slow_tail_preserves_uncommitted_claimed_bytes() {
+    let mut p = Planner::new(1_000_000, 64_000);
+    p.assign(0, None).unwrap();
+    let split = p.assign(1, None).unwrap().from;
+    let w1_len = 1_000_000 - split;
+    assert!(matches!(p.claim(1, split, w1_len), Claim::Granted(n) if n == w1_len));
+    assert_eq!(p.commit(1, 1_000_000), Some(1_000_000));
+    // Worker 0 claimed 24 KiB that are still buffered (uncommitted: cursor < reserved).
+    assert_eq!(p.claim(0, 0, 24_000), Claim::Granted(24_000));
+    let hedged = p.preempt_slow_tail(1, &[0]).expect("hedged tail assigned");
+    assert_eq!(hedged.from, 24_000);
+    assert_eq!(hedged.to, split);
+    assert_eq!(hedged.written, 0);
+    // Worker 0 still owns and commits its already-claimed 24 KiB without double-paying.
+    assert_eq!(p.commit(0, 24_000), Some(24_000));
+    assert_eq!(
+        p.claim(1, 24_000, split - 24_000),
+        Claim::Granted(split - 24_000)
+    );
+    assert_eq!(p.commit(1, split), Some(split));
+    assert!(p.is_complete());
+    check_invariants(&p);
+}
