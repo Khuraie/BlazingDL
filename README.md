@@ -24,7 +24,7 @@
 
 **BlazingDL** is a native Rust download manager built for raw throughput and clean control. It pairs a zero-bloat segmented transfer engine (300+ GB 1× disk streaming unpack, Multi-NIC bonding, adaptive concurrency, hedged tail racing, Metalink multi-mirror racing, BitTorrent, and native Usenet `.nzb`) with the **Saville Catalog Pulse** desktop shell.
 
-> 🎬 **Watch the full 1080p60 Launch Promo with audio (0:36 · 48 kHz stereo):** [BlazingDL-Promo-1080p60.mp4](https://github.com/Khuraie/BlazingDL/releases/download/v0.5.2/BlazingDL-Promo-1080p60.mp4)
+> **Full 1080p60 Launch Promo (0:36 · 48 kHz stereo):** [BlazingDL-Promo-1080p60.mp4](https://github.com/Khuraie/BlazingDL/releases/download/v0.5.2/BlazingDL-Promo-1080p60.mp4)
 
 ---
 
@@ -41,6 +41,29 @@ Have **200 GB free** and a **150 GB game `.zip`**? Legacy downloaders save the a
 - **300+ GB ZIP64 & Parallel `STORE` Slicing:** splits huge `STORE` entries across up to 8 concurrent Range / Multi-NIC streams with **O(1) instant Pause → Resume** and `crc32fast` combine verification.
 - **Works Everywhere:** triggers across Quick-Add, `+ ADD URL`, and Browser captures (including extensionless signed CDN links), inheriting Cookies, Auth, Proxy/PAC, DNS, and automatic mid-stream TCP reconnects.
 - **Zero Breakage:** if a server ignores HTTP `Range` or serves an encrypted ZIP, BlazingDL transparently falls back to a standard download. Also streams `.tar` (Range-resumable), `.tar.gz`/`.tar.xz`/`.tar.zst`, and `.acpkg` v1.
+
+<details>
+<summary><strong>Verified live GitHub CDN run — 507 MiB extracted, 0 B .zip on disk, 20.6 MiB peak RAM</strong></summary>
+
+Measured directly against a real public GitHub Release asset ([`ffmpeg-master-latest-win64-gpl.zip`](https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip), 8 workers, Windows x64 release build):
+
+| Metric | Measured | Standard downloader + unzip |
+| :--- | ---: | ---: |
+| Remote `.zip` over HTTPS | `196.05 MiB` (`205,571,641 B`) | `196.05 MiB` |
+| Extracted output (44 files, CRC32-verified) | `507.21 MiB` (`531,850,158 B`) | `507.21 MiB` |
+| Peak disk usage (`.zip` bytes written) | **`507.21 MiB`** (`0 B` `.zip`) | `703.26 MiB` (`196.05 MiB` `.zip` + extracted) |
+| Peak process RAM (`PeakWorkingSet64`) | **`20.62 MiB`** | — |
+| Elapsed time (wire → ready on disk) | **`20.67 s`** (`9.48 MiB/s` wire / `24.54 MiB/s` extracted) | Download + separate extraction pass |
+
+Reproduce on your own machine with [crates/extract/examples/live_unpack.rs](crates/extract/examples/live_unpack.rs):
+
+```bash
+cargo run --release -p blazingdl-extract --example live_unpack -- \
+  https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip \
+  ./ffmpeg-out 8
+```
+
+</details>
 
 ---
 
@@ -90,41 +113,41 @@ Bond **Ethernet + Wi-Fi 6E + 5G USB tethering** simultaneously via `Route::Aggre
 <table>
   <tr>
     <td width="50%" valign="top">
-      <h3>⚡ Plexo-Style Multi-NIC Aggregation</h3>
+      <h3>01 / Multi-NIC Aggregation</h3>
       Bond multiple active network adapters (e.g. <strong>Ethernet + Wi-Fi + 5G USB tethering</strong>) across concurrent download workers via <code>Route::Aggregate</code>. One click on the <strong>MULTI-NIC</strong> pill bonds all active interfaces and surfaces live per-NIC telemetry in the Pulse Header.
     </td>
     <td width="50%" valign="top">
-      <h3>🏎️ Adaptive Streams &amp; Hedged Tail Racing</h3>
+      <h3>02 / Adaptive Streams &amp; Hedged Tail Racing</h3>
       <code>AdaptiveScaler</code> adjusts concurrency against real throughput gain and disk pressure, while <code>Planner::preempt_slow_tail</code> lets fast workers preempt sluggish straggler tails with anti-livelock cooldowns so one bad TCP route never stalls the last 5%.
     </td>
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <h3>🌐 Multi-Mirror Racing &amp; Metalink</h3>
+      <h3>03 / Multi-Mirror Racing &amp; Metalink</h3>
       Drop or paste any RFC 5854 <code>.meta4</code> or v3 <code>.metalink</code> manifest to race byte ranges across all mirrors in parallel. Failing mirrors enter an automatic 60-second cooldown while healthy mirrors finish the file and verify the strongest declared checksum.
     </td>
     <td width="50%" valign="top">
-      <h3>📰 Native Usenet (<code>.nzb</code>) Engine</h3>
+      <h3>04 / Native Usenet (<code>.nzb</code>) Engine</h3>
       Pure-Rust NZB XML parser, streaming yEnc decoder with per-segment CRC32 verification, and multi-connection async NNTP/NNTPS (<code>tokio-rustls</code>) downloader built directly into <code>blazingdl-engine::nzb</code>.
     </td>
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <h3>🔐 Smart Checksums &amp; Webhooks</h3>
+      <h3>05 / Smart Checksums &amp; Webhooks</h3>
       Paste a URL alongside a SHA-512/256/1/MD5 hash (or drop a sibling <code>SHA256SUMS</code> / <code>.sha256</code> file) to auto-match integrity checks. Post-download regex/category rules automatically move files, run shell command templates, or push <strong>Discord, ntfy, and JSON webhooks</strong>.
     </td>
     <td width="50%" valign="top">
-      <h3>🎮 Game / Focus Mode &amp; 24h Curve</h3>
+      <h3>06 / Game / Focus Mode &amp; 24h Curve</h3>
       Click the <strong>FOCUS</strong> pill to auto-throttle downloads whenever a fullscreen Direct3D game or presentation is active (<code>SHQueryUserNotificationState</code>), or define a 24-hour bandwidth schedule curve. Always enforces the tightest cap without overwriting manual Speed Limiter settings.
     </td>
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <h3>📦 300+ GB 1× Disk Stream Unpack</h3>
+      <h3>07 / 300+ GB 1× Disk Stream Unpack</h3>
       Pure-Rust streaming unpack (wire-compatible with <a href="https://github.com/Khuraie/AntiCompress">Khuraie/AntiCompress</a>) across <strong>Quick-Add, + ADD URL, and Browser captures</strong> (even extensionless signed CDN links): streams remote <code>.zip</code> / <strong>ZIP64 (&gt;300 GiB)</strong> in &lt;512 KiB/worker RAM (Store, Deflate, Zstd), splits huge ZIP <code>STORE</code> files across parallel Range/Multi-NIC streams with <strong>O(1) instant Pause → Resume</strong> and <code>crc32fast</code> combine verification, streams <code>.tar</code> (Range-resumable) / <code>.tar.gz</code> / <code>.tar.xz</code> / <code>.tar.zst</code> and <code>.acpkg</code> v1 with automatic backoff retries, Cookies/Auth/Proxy inheritance, and <strong>transparent fallback</strong> on non-Range or encrypted archives. Multi-part <code>.rar</code> / <code>.7z</code> auto-extract via 7-Zip or HatchZip.
     </td>
     <td width="50%" valign="top">
-      <h3>🧲 BitTorrent, Video &amp; Saville Browser Capture</h3>
+      <h3>08 / BitTorrent, Video &amp; Saville Browser Capture</h3>
       Full <code>librqbit</code> BitTorrent engine (magnets, DHT, uTP, selective files, blocklists), signature-verified <code>yt-dlp</code> / <code>gallery-dl</code> / <code>ffmpeg</code> helpers, Saville-styled cross-browser extension (floating video overlay + toolbar popup), CLI (<code>blazingdl-cli</code>), Remote Web UI (<code>blazingdl-remote</code>), and stdio <strong>MCP server</strong> (<code>blazingdl-mcp</code>).
     </td>
   </tr>

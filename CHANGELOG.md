@@ -3,6 +3,8 @@
 Each release's notes on GitHub come from its section here (`## [X.Y.Z]`, see
 `.github/workflows/release.yml`).
 
+## [Unreleased]
+
 ## [0.5.3] - 2026-11-25
 
 ### Added
@@ -17,7 +19,9 @@ Each release's notes on GitHub come from its section here (`## [X.Y.Z]`, see
 - **UI-thread disk responsiveness:** moved sibling checksum manifest probing (`find_sibling_checksum`) off the UI thread onto background workers so unreachable network shares never stall starting or finishing downloads.
 - **macOS Safari extension & Linux packaging:** updated Safari extension relay/entitlements/Info.plist to `blazingdl-nmhost` / `BLAZINGDL_DATA_DIR`, fixed the Linux tarball `.xpi` path and AppImage zsync update URL, and updated Windows unit test fixtures and release workflow guards.
 
-## [Unreleased]
+## [0.5.2-upstream] - Upstream Mister Download Manager base
+
+*Changes inherited from upstream [Mister Download Manager](https://github.com/anefzaoui/misterdownloadmanager) prior to the BlazingDL fork.*
 
 ### Added
 
