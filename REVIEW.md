@@ -24,7 +24,7 @@ from a diff. Items that stop earning their place are removed.
         on Windows as well as Linux and macOS. Prefer matching a folder's own entries by exact
         name over building a name to open.
 - **Triggered by:** removing, replacing or renaming a file.
-  - [ ] It can only touch a file MDM made for this download. What if the file is the user's
+  - [ ] It can only touch a file BlazingDL made for this download. What if the file is the user's
         finished one, is open, or changed since?
 
 ## Translations
