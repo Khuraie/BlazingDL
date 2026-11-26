@@ -431,7 +431,7 @@ const Downloads = (() => {
   }
 
   function openHelp(why) {
-    popupExt.tabs.create({ url: `https://blazingdl.app/help/browser-help.html#${why || "not-installed"}` });
+    popupExt.tabs.create({ url: `https://github.com/Khuraie/BlazingDL/blob/main/docs/browser-help.md#${why || "not-installed"}` });
   }
 
   function showAll() {

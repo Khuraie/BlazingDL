@@ -6920,7 +6920,7 @@ extension	Add it from the Chrome Web Store	Chrome 웹 스토어에서 추가
 #. text in the browser extension
 #. on the download button (green) over a video after the app added and started the download; a quality may follow ('· 1080p') and a 'Show' button; BlazingDL is the app's short name, keep it; short
 #, machine
-extension	Added to BlazingDL	MDM에 추가됨
+extension	Added to BlazingDL	BlazingDL에 추가됨
 #. text in the browser extension
 #. shown briefly on the download button over a video after a quality was picked: the download was added to the app's download queue, to start later
 #, machine
@@ -7232,7 +7232,7 @@ extension	Looking up took too long	찾는 데 시간이 너무 오래 걸렸습�
 #. text in the browser extension
 #. on the download button (red) over a video when the app isn't installed or didn't start; 'Get BlazingDL' and 'Retry' buttons follow; BlazingDL is the app's short name, keep it; short
 #, machine
-extension	BlazingDL didn't answer	MDM이 응답하지 않음
+extension	BlazingDL didn't answer	BlazingDL이 응답하지 않음
 #. text in the browser extension
 #. heading in the toolbar button's popup over the list of the videos, sounds and streams the current web page has loaded
 #, machine
@@ -7474,7 +7474,7 @@ extension	Send downloads to	다운로드 보낼 위치
 #. on the download button over a video right after it was clicked, while the download goes to the app; BlazingDL is BlazingDL's short name, keep it as it is; short
 #. the trailing ... means it is still going on: keep it
 #, machine
-extension	Sending to BlazingDL...	MDM으로 보내는 중...
+extension	Sending to BlazingDL...	BlazingDL로 보내는 중...
 #. text in the browser extension
 #. under the extension's name in the toolbar button's popup: downloads go to another BlazingDL, a server, at this address; short
 #, machine

@@ -5,7 +5,7 @@
 // proxy, the video button in full screen, where downloads go, #157; BlazingDL's Options). background.js
 // does the work; popup-ui.js has the shared pieces.
 const ext = globalThis.browser ?? globalThis.chrome;
-const HELP = "https://blazingdl.app/help/browser-help.html";
+const HELP = "https://github.com/Khuraie/BlazingDL/blob/main/docs/browser-help.md";
 // The creator's GitHub Sponsors page (the app's Help → Support BlazingDL): a plain link, in a new tab.
 const SPONSORS = "https://github.com/Khuraie/BlazingDL";
 const t = (key, ...subs) => ext.i18n.getMessage(key, subs) || key;

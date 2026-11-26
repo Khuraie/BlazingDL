@@ -7511,7 +7511,7 @@ extension	Starting...	በመጀመር ላይ...
 #. text in the browser extension
 #. link at the foot of the toolbar button's popup to the creator's GitHub Sponsors page (BlazingDL is free; this is an optional donation)
 #, machine
-extension	Support BlazingDL	MDMን ይደግፉ
+extension	Support BlazingDL	BlazingDLን ይደግፉ
 #. text in the browser extension
 #. check box in the toolbar button's popup: on, downloads go to the app; off, the browser keeps them
 #, machine

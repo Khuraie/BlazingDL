@@ -2480,7 +2480,7 @@ const CASES = {
     const log = path.join(data, "logs", "mdm.log");
     const from = fs.existsSync(log) ? fs.statSync(log).size : 0;
     const label = "Download all links with BlazingDL";
-    const help = "https://blazingdl.app/help/browser-help.html";
+    const help = "https://github.com/Khuraie/BlazingDL/blob/main/docs/browser-help.md";
     // The tabs open now (the help page's, when the extension explains a failure).
     const tabs = () =>
       t.kind === "chromium"

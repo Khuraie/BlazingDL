@@ -917,17 +917,17 @@ const ok = (what) => {
   let answered = 0;
   ({ sent, tabs } = await run(long, () => (++answered === 3 ? { ok: false, why: "not-running" } : { ok: true })));
   assert.equal(sent.length, 3);
-  assert.deepEqual(tabs, ["https://blazingdl.app/help/browser-help.html#not-running"]);
+  assert.deepEqual(tabs, ["https://github.com/Khuraie/BlazingDL/blob/main/docs/browser-help.md#not-running"]);
   // A link longer than a whole message: the others go, and the help page says one was left out.
   const huge = `https://x.test/${"x".repeat(MAX)}`;
   ({ sent, tabs } = await run([...long, huge]));
   assert.deepEqual(sent.flatMap((m) => m.links), long);
-  assert.deepEqual(tabs, ["https://blazingdl.app/help/browser-help.html#too-large"]);
+  assert.deepEqual(tabs, ["https://github.com/Khuraie/BlazingDL/blob/main/docs/browser-help.md#too-large"]);
   // Only such links: nothing goes, too large.
   let store;
   ({ sent, tabs, store } = await run([huge]));
   assert.deepEqual(sent, []);
-  assert.deepEqual(tabs, ["https://blazingdl.app/help/browser-help.html#too-large"]);
+  assert.deepEqual(tabs, ["https://github.com/Khuraie/BlazingDL/blob/main/docs/browser-help.md#too-large"]);
   assert.equal(store.status.why, "too-large");
   ok("Download all links: a list at the limit whole, past it in parts the host takes, failures explained");
 }
@@ -1333,7 +1333,7 @@ const ok = (what) => {
     await ask(listeners, { type: "open-post", url: "https://news.test/p/1" }, from);
     assert.deepEqual(await ask(listeners, { type: "open-post", url: "https://elsewhere.test/p/1" }, from), { ok: false }, "a post on this page's site only");
     assert.deepEqual(opened, [
-      { url: "https://blazingdl.app/download", openerTabId: 5, index: 3 },
+      { url: "https://github.com/Khuraie/BlazingDL/releases/latest", openerTabId: 5, index: 3 },
       { url: "https://news.test/p/1", openerTabId: 5, index: 3 },
     ]);
     // A plain file: `direct` with it, and `show` back for "Show".
@@ -3007,11 +3007,12 @@ function videoButton({ stored = {}, location, iframes, videos, subframe = false 
   // #852: the app's word on what the look-up lacked, shown with the qualities: its text, and a
   // link to BlazingDL's own help page only (never another address a page could slip in).
   const { noticeOf } = make(["noticeOf"], "{ noticeOf }");
-  const help = "https://blazingdl.app/de/help/video.html#javascript-runtime";
+  const help = "https://github.com/Khuraie/BlazingDL/blob/main/docs/video.md#javascript-runtime";
   const notice = { text: "YouTube needs a JavaScript runtime", link: "How to install one", url: help };
   assert.deepEqual(noticeOf({ ...ready, notice }), notice);
+  assert.deepEqual(noticeOf({ ...ready, notice: { ...notice, url: "https://blazingdl.app/de/help/video.html#javascript-runtime" } }), { ...notice, url: "https://blazingdl.app/de/help/video.html#javascript-runtime" });
   assert.deepEqual(noticeOf({ state: "failed", reason: "no-choices", notice }), notice);
-  for (const url of ["javascript:alert(1)", "https://blazingdl.app.evil.test/", "http://blazingdl.app/help/", 7]) {
+  for (const url of ["javascript:alert(1)", "https://blazingdl.app.evil.test/", "https://github.com/other/repo/", "http://blazingdl.app/help/", 7]) {
     assert.deepEqual(noticeOf({ ...ready, notice: { ...notice, url } }), { text: notice.text, link: "", url: "" }, String(url));
   }
   for (const n of [undefined, null, "words", { text: "" }, { text: 7 }, { link: "x", url: help }]) {

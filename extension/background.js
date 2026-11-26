@@ -13,7 +13,7 @@
 const ext = globalThis.browser ?? globalThis.chrome;
 const HOST = "com.blazingdl.host";
 const VERSION = ext.runtime.getManifest().version;
-const HELP = "https://blazingdl.app/help/browser-help.html";
+const HELP = "https://github.com/Khuraie/BlazingDL/blob/main/docs/browser-help.md";
 const action = ext.action ?? ext.browserAction;
 // Safari has no downloads API at all (nor proxy): it can't take a download from the browser, so
 // the links clicked in a page are handed over instead (`link`, below; page.js).
@@ -3491,7 +3491,7 @@ async function videoPick(m, sender) {
 
 const isWeb = (u) => typeof u === "string" && /^https?:\/\//i.test(u);
 // Where the button's "Get BlazingDL" goes.
-const GET_MDM = "https://blazingdl.app/download";
+const GET_MDM = "https://github.com/Khuraie/BlazingDL/releases/latest";
 // A new tab next to `tab`, opened from it.
 const beside = (tab) => ({
   ...(Number.isInteger(tab.id) ? { openerTabId: tab.id } : {}),
