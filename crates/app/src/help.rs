@@ -26,54 +26,26 @@ pub const CHECK_EVERY: i64 = 24 * 3600;
 /// The check at start waits this long (the window, the list and the downloads first).
 pub const CHECK_AFTER_START: std::time::Duration = std::time::Duration::from_secs(5);
 
-/// The official website: the home page and the user guide, docs/*.md made into pages by
-/// tools/website/build.py. GitHub (REPO) keeps what is GitHub's: issues, releases, the source.
-pub const SITE: &str = "https://blazingdl.app";
+/// The project's home page and user guide on GitHub.
+pub const SITE: &str = "https://github.com/Khuraie/BlazingDL";
 
-/// The website's languages besides English, its folders (`/de/help/`): tools/website/sitei18n.py's
-/// LANGS, which a test keeps this list equal to. English is at the root.
-const SITE_LANGS: &[&str] = &[
-    "es", "pt-br", "pt", "fr", "de", "ru", "ar", "zh-hans", "ja", "ko", "tr", "it", "id", "vi",
-    "hi", "fa", "pl", "uk", "nl", "th", "bn",
-];
-
-/// The website's folder for the interface language `code` (a catalog's code: `de`, `pt-br`,
-/// `es-mx`…): the language itself, else its base language (`es-mx` reads `/es/`, `fr-ca`
-/// `/fr/`), else none, English. `zh-hant` stays English: the site has Simplified Chinese only.
-fn site_lang(code: &str) -> Option<&'static str> {
-    let code = code.to_ascii_lowercase();
-    let base = code.split(['-', '_']).next().unwrap_or_default();
-    SITE_LANGS
-        .iter()
-        .find(|l| **l == code)
-        .or_else(|| SITE_LANGS.iter().find(|l| **l == base))
-        .copied()
-}
-
-/// The website's address of a user guide page in the language `lang` (an interface language
-/// code): `doc` is the page's file in docs/ with an optional section (`"video.md"`,
-/// `"README.md#tutorials"`; the guide's contents are README.md), `""` the home page. The mapping
-/// is build.py's: docs/README.md is /help/, docs/<page>.md /help/<page>.html.
-pub fn page_url(doc: &str, lang: &str) -> String {
+/// Address of a user guide page (`doc` is the file in `docs/` with an optional `#section`,
+/// `""` is the project home page).
+pub fn page_url(doc: &str, _lang: &str) -> String {
     let (file, anchor) = match doc.split_once('#') {
         Some((file, anchor)) => (file, format!("#{anchor}")),
         None => (doc, String::new()),
     };
-    let path = match file {
-        "" => "/".to_owned(),
-        "README.md" => "/help/".to_owned(),
-        page => format!("/help/{}.html", page.strip_suffix(".md").unwrap_or(page)),
-    };
-    let folder = site_lang(lang).map(|l| format!("/{l}")).unwrap_or_default();
-    format!("{SITE}{folder}{path}{anchor}")
+    if file.is_empty() {
+        format!("{SITE}{anchor}")
+    } else {
+        format!("{SITE}/blob/main/docs/{file}{anchor}")
+    }
 }
 
-/// The website's page that thanks everyone who sent a pull request, opened an issue or joined a
-/// conversation (About's **Contributors**), in the language `lang` when the site has it. Not a
-/// guide page: [`page_url`] would map it under `/help/`.
-fn contributors_page(lang: &str) -> String {
-    let folder = site_lang(lang).map(|l| format!("/{l}")).unwrap_or_default();
-    format!("{SITE}{folder}/contributors.html")
+/// Contributors page on GitHub (About's **Contributors**).
+fn contributors_page(_lang: &str) -> String {
+    format!("{SITE}/graphs/contributors")
 }
 
 /// Open a page of the user guide on the website, in the interface language when the site has
@@ -481,6 +453,19 @@ impl Updates {
             status: None,
             press: false,
         }
+    }
+
+    /// The newer release this window found, if any.
+    pub fn found_release(&self) -> Option<&Release> {
+        match self.result.as_ref() {
+            Some(Ok(Found::Newer(rel))) => Some(rel),
+            _ => None,
+        }
+    }
+
+    /// True once a completed check confirmed this copy is already up to date.
+    pub fn is_latest(&self) -> bool {
+        matches!(self.result.as_ref(), Some(Ok(Found::Latest)))
     }
 
     /// `weekly`: the automatic check (its switch is here, under the answer). `Done(true)`:
@@ -1723,42 +1708,26 @@ mod tests {
     }
 
     #[test]
-    fn help_pages_are_the_websites_in_the_interface_language() {
+    fn help_pages_point_to_github_docs() {
         let at = |doc, lang| page_url(doc, lang);
-        assert_eq!(at("README.md", "en"), "https://blazingdl.app/help/");
+        assert_eq!(
+            at("README.md", "en"),
+            "https://github.com/Khuraie/BlazingDL/blob/main/docs/README.md"
+        );
         assert_eq!(
             at("README.md#tutorials", "en"),
-            "https://blazingdl.app/help/#tutorials"
+            "https://github.com/Khuraie/BlazingDL/blob/main/docs/README.md#tutorials"
         );
         assert_eq!(
             at("video.md", "de"),
-            "https://blazingdl.app/de/help/video.html"
+            "https://github.com/Khuraie/BlazingDL/blob/main/docs/video.md"
         );
         assert_eq!(
             at("queues-and-scheduler.md#the-scheduler-window", "ar"),
-            "https://blazingdl.app/ar/help/queues-and-scheduler.html#the-scheduler-window"
+            "https://github.com/Khuraie/BlazingDL/blob/main/docs/queues-and-scheduler.md#the-scheduler-window"
         );
-        assert_eq!(at("", "fr"), "https://blazingdl.app/fr/");
-        assert_eq!(at("", "en"), "https://blazingdl.app/");
-        // The site's folders: its own codes, a region read as its language, else English.
-        for (lang, folder) in [
-            ("pt-br", "/pt-br"),
-            ("pt", "/pt"),
-            ("zh-hans", "/zh-hans"),
-            ("es-mx", "/es"),
-            ("fr-ca", "/fr"),
-            ("zh-hant", ""),
-            ("sv", ""),
-            ("ca-es-valencia", ""),
-            ("he", ""),
-            ("", ""),
-        ] {
-            assert_eq!(
-                at("options.md", lang),
-                format!("https://blazingdl.app{folder}/help/options.html"),
-                "{lang}"
-            );
-        }
+        assert_eq!(at("", "fr"), "https://github.com/Khuraie/BlazingDL");
+        assert_eq!(at("", "en"), "https://github.com/Khuraie/BlazingDL");
     }
 
     /// The repository's root.
@@ -1767,48 +1736,21 @@ mod tests {
     }
 
     #[test]
-    fn the_site_languages_are_the_websites() {
-        // tools/website/sitei18n.py: `LANGS = [` then one `("code", …),` per language.
-        let py = std::fs::read_to_string(root().join("tools/website/sitei18n.py")).unwrap();
-        let list = py.split("\nLANGS = [").nth(1).unwrap();
-        let codes: Vec<&str> = list
-            .split("\n]")
-            .next()
-            .unwrap()
-            .lines()
-            .filter_map(|l| l.trim().strip_prefix("(\"")?.split('"').next())
-            .collect();
-        assert_eq!(codes, SITE_LANGS);
-    }
-
-    #[test]
-    fn the_contributors_page_is_the_websites_in_every_language() {
-        // English is at the root (SITE_LANGS leaves it out); the others get their folder, as
-        // page_url's pages do.
+    fn the_contributors_page_points_to_github() {
         assert_eq!(
             contributors_page("en"),
-            "https://blazingdl.app/contributors.html"
+            "https://github.com/Khuraie/BlazingDL/graphs/contributors"
         );
         assert_eq!(
             contributors_page("de"),
-            "https://blazingdl.app/de/contributors.html"
-        );
-        // A regional code reads its base language.
-        assert_eq!(
-            contributors_page("es-mx"),
-            "https://blazingdl.app/es/contributors.html"
-        );
-        // The site has Simplified Chinese only.
-        assert_eq!(
-            contributors_page("zh-hant"),
-            "https://blazingdl.app/contributors.html"
+            "https://github.com/Khuraie/BlazingDL/graphs/contributors"
         );
     }
 
     /// Every user guide page the program links to (`doc` as page_url takes it): the literal
     /// pages given to open_page and the Help menu (`Cmd::HelpPage`) in the app's source, the
-    /// extension window's tutorial and help sections, and every website help address written in
-    /// a crate or in the browser extension.
+    /// extension window's tutorial and help sections, and every docs link written in a crate or in
+    /// the browser extension.
     fn linked_docs() -> Vec<String> {
         let mut docs = vec![blazingdl_ipc::extension::GUIDE_DOC.to_owned()];
         // The sections Options' Test browser integration opens (extension::checks' reasons).
@@ -1816,7 +1758,10 @@ mod tests {
             docs.push(blazingdl_ipc::extension::help_doc(why));
         }
         let calls = regex::Regex::new(r#"(?:open_page|HelpPage)\(\s*"([^"]+)""#).unwrap();
-        let site = regex::Regex::new(r"https://blazingdl\.app/help/([\w.-]*)(#[\w-]+)?").unwrap();
+        let site = regex::Regex::new(
+            r"https://github\.com/Khuraie/BlazingDL/blob/main/docs/([\w.-]+)(#[\w-]+)?",
+        )
+        .unwrap();
         let mut files = vec![];
         let mut dirs = vec![root().join("crates"), root().join("extension")];
         while let Some(dir) = dirs.pop() {
@@ -1836,11 +1781,7 @@ mod tests {
                 docs.extend(calls.captures_iter(&text).map(|c| c[1].to_owned()));
             }
             for c in site.captures_iter(&text) {
-                let page = match &c[1] {
-                    "" => "README.md".to_owned(),
-                    p => format!("{}.md", p.strip_suffix(".html").unwrap_or(p)),
-                };
-                docs.push(format!("{page}{}", c.get(2).map_or("", |a| a.as_str())));
+                docs.push(format!("{}{}", &c[1], c.get(2).map_or("", |a| a.as_str())));
             }
         }
         docs.sort();
@@ -1848,8 +1789,8 @@ mod tests {
         docs
     }
 
-    /// A heading's section id as the website's Markdown (Python-Markdown's toc) makes it: its
-    /// own `{#id}`, else its text in lower case, letters, digits, `_` and `-` kept, spaces `-`.
+    /// A heading's section id as the guide's Markdown makes it: its own `{#id}`, else its text in
+    /// lower case, letters, digits, `_` and `-` kept, spaces `-`.
     fn heading_id(line: &str) -> Option<String> {
         let text = line.trim_start_matches('#');
         if text.len() == line.len() || !text.starts_with(' ') {
@@ -1877,7 +1818,7 @@ mod tests {
         for doc in &docs {
             let (file, anchor) = doc.split_once('#').unwrap_or((doc, ""));
             let Ok(text) = std::fs::read_to_string(root().join("docs").join(file)) else {
-                panic!("{doc}: docs/{file} isn't there: the website has no such page");
+                panic!("{doc}: docs/{file} isn't there");
             };
             if !anchor.is_empty() {
                 let ids: Vec<String> = text.lines().filter_map(heading_id).collect();
@@ -1886,35 +1827,6 @@ mod tests {
                     "{doc}: no section #{anchor} in docs/{file} ({ids:?})"
                 );
             }
-        }
-    }
-
-    /// The same pages on a built website: `python tools/website/build.py` (BLAZINGDL_SITE_PREVIEW=1
-    /// is enough, English), then `BLAZINGDL_SITE_DIR=target/site cargo test -p blazingdl-app --
-    /// --ignored linked_help_pages_are_on_the_built_site`: each page is a file there, with its
-    /// section's id.
-    #[test]
-    #[ignore = "needs the website built, in BLAZINGDL_SITE_DIR"]
-    fn linked_help_pages_are_on_the_built_site() {
-        let out = std::path::PathBuf::from(
-            std::env::var("BLAZINGDL_SITE_DIR").expect("BLAZINGDL_SITE_DIR"),
-        );
-        for doc in linked_docs() {
-            let url = page_url(&doc, "en");
-            let path = url.strip_prefix(SITE).unwrap();
-            let (path, anchor) = path.split_once('#').unwrap_or((path, ""));
-            let mut file = out.join(path.trim_start_matches('/'));
-            if path.ends_with('/') {
-                file.push("index.html");
-            }
-            let Ok(html) = std::fs::read_to_string(&file) else {
-                panic!("{doc}: {url} isn't built ({})", file.display());
-            };
-            if !anchor.is_empty() {
-                let id = format!("id=\"{anchor}\"");
-                assert!(html.contains(&id), "{doc}: {url} has no #{anchor}");
-            }
-            println!("{doc} -> {url}: ok");
         }
     }
 }

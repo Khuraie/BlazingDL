@@ -10,11 +10,11 @@ Current engineering status for **BlazingDL** (`v0.5.3`+). Released changes are t
 - **Automation & Control:** Smart clipboard/sibling checksum auto-matching (off-UI-thread), post-download regex/category automation rules (move, shell command, Discord/ntfy/JSON webhooks), fullscreen Game/Focus auto-throttle with 24-hour bandwidth curve, CLI (`blazingdl-cli`), Remote Web UI (`blazingdl-remote`), and MCP stdio server (`blazingdl-mcp`).
 - **Multi-Platform Packaging & CI:** Automated GitHub Actions CI and Release workflows covering Windows (`x64`, `ARM64`, `x86`), Linux (`x86_64`, `ARM64`: AppImage, `.deb`, `.rpm`, `.tar.gz`), macOS (`arm64`, `x86_64` `.dmg` + Safari native extension relay), and Docker.
 - **Firefox Add-on on Mozilla Add-ons (AMO):** Signed and live at [addons.mozilla.org/firefox/addon/blazingdl](https://addons.mozilla.org/firefox/addon/blazingdl/) with one-click install and automatic updates across Firefox, Zen, and LibreWolf.
+- **BlazingDL Ed25519 Release Signing Key & In-App Update Pill:** Rotated `crates/tools/keys/blazingdl-release.asc` + `BLAZINGDL_RELEASE_KEY` in GitHub Actions for verified in-app `Update now` (active from `v0.5.4`+) and added a clickable `UPDATE` pill in the Saville Command Bar whenever a newer release is available.
 
 ## In Progress
 
 - **Chrome Web Store Listing:** Publish the Chromium extension to the Chrome Web Store and re-enable Chromium store links in the in-app extension dialog (Firefox AMO is already live).
-- **BlazingDL Release Signing Key (Auto-Updater):** Rotate `crates/tools/keys/` from the inherited upstream OpenPGP key to BlazingDL's own Ed25519 release signing key and configure `BLAZINGDL_RELEASE_KEY` in GitHub Actions so in-app `Help → Check for updates` verifies and installs BlazingDL releases directly.
 - **OS Code Signing:** Obtain Windows Authenticode and macOS Developer ID signing/notarization certificates to remove first-run SmartScreen and Gatekeeper warnings.
 
 ## Planned

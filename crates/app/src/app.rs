@@ -1369,6 +1369,8 @@ pub struct App {
     extension_weighed: bool,
     /// The weekly update check, while it runs.
     auto_update: Option<crate::help::Slot>,
+    /// Newer release found by the automatic or manual update check (drives the persistent UPDATE pill).
+    available_update: Option<crate::help::Release>,
     /// The automatic check found a new version: its window comes to the front once shown.
     raise_updates: bool,
     /// Options was asked for from outside (the extension's Button settings..., `/show`): it comes
@@ -2214,6 +2216,7 @@ impl App {
             extension: None,
             extension_weighed: false,
             auto_update: None,
+            available_update: None,
             raise_updates: false,
             raise_options: false,
             started: Instant::now(),
@@ -11624,6 +11627,7 @@ impl App {
                 bonded_n,
                 self.settings.focus_mode.enabled,
                 self.focus_ctrl.active_reason(),
+                self.available_update.as_ref().map(|r| r.version.as_str()),
                 focus_add,
                 focus_flt,
             );
@@ -11658,6 +11662,12 @@ impl App {
                             "Focus Auto-Throttle OFF".to_owned()
                         };
                         self.quick_notice = Some((msg, Instant::now()));
+                    }
+                    crate::saville::CommandBarEvent::OpenUpdate => {
+                        if let Some(rel) = self.available_update.clone() {
+                            self.updates = Some(crate::help::Updates::found(rel));
+                            self.raise_updates = true;
+                        }
                     }
                 }
             }
@@ -13167,10 +13177,19 @@ impl App {
             .and_then(|s| s.lock().unwrap().take());
         if let Some(res) = done {
             self.auto_update = None;
-            if let (Ok(crate::help::Found::Newer(rel)), None) = (res, &self.updates) {
-                tracing::info!("update available: {}", rel.version);
-                self.updates = Some(crate::help::Updates::found(rel));
-                self.raise_updates = true;
+            match res {
+                Ok(crate::help::Found::Newer(rel)) => {
+                    tracing::info!("update available: {}", rel.version);
+                    self.available_update = Some(rel.clone());
+                    if self.updates.is_none() {
+                        self.updates = Some(crate::help::Updates::found(rel));
+                        self.raise_updates = true;
+                    }
+                }
+                Ok(crate::help::Found::Latest) => {
+                    self.available_update = None;
+                }
+                Err(_) => {}
             }
         }
     }
@@ -13250,7 +13269,13 @@ impl App {
         let mut weekly = self.settings.update_check;
         let mut close_for_update = false;
         if let Some(d) = &mut self.updates {
-            match d.show(ctx, &self.rt, &mut weekly) {
+            let outcome = d.show(ctx, &self.rt, &mut weekly);
+            if let Some(rel) = d.found_release() {
+                self.available_update = Some(rel.clone());
+            } else if d.is_latest() {
+                self.available_update = None;
+            }
+            match outcome {
                 Outcome::Open => {}
                 // Update now: the new copy is going in place; BlazingDL saves and closes for it.
                 Outcome::Done(true) => {

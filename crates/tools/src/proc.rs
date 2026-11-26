@@ -1551,19 +1551,7 @@ pub fn spawn(mut cmd: Command, name: &str) -> Result<Spawned, ProcError> {
     if let Some(err) = child.stderr.take() {
         let (tail, warnings, done) = (tail.clone(), warnings.clone(), stderr_done.clone());
         std::thread::spawn(move || {
-            for line in BufReader::new(err).lines().map_while(Result::ok) {
-                if let Some(w) = line.strip_prefix("WARNING:") {
-                    let mut ws = warnings.lock().unwrap();
-                    if ws.len() < WARNINGS_KEPT {
-                        ws.push(w.trim().to_owned());
-                    }
-                }
-                let mut t = tail.lock().unwrap();
-                if t.len() >= TAIL {
-                    t.pop_front();
-                }
-                t.push_back(line);
-            }
+            read_stderr_lines(err, &tail, &warnings);
             done.store(true, std::sync::atomic::Ordering::Release);
         });
     } else {
@@ -1582,6 +1570,39 @@ pub fn spawn(mut cmd: Command, name: &str) -> Result<Spawned, ProcError> {
         job,
         _hold: hold,
     })
+}
+
+/// Read stderr line-by-line lossily so non-UTF-8 bytes (e.g. Windows codepage or yt-dlp JS
+/// challenge dumps) never abort reading before the real `ERROR:` line arrives.
+fn read_stderr_lines(
+    err: impl Read,
+    tail: &Mutex<VecDeque<String>>,
+    warnings: &Mutex<Vec<String>>,
+) {
+    let mut reader = BufReader::new(err);
+    let mut buf = Vec::new();
+    loop {
+        buf.clear();
+        match reader.read_until(b'\n', &mut buf) {
+            Ok(0) | Err(_) => break,
+            Ok(_) => {}
+        }
+        while buf.last().is_some_and(|&b| b == b'\n' || b == b'\r') {
+            buf.pop();
+        }
+        let line = String::from_utf8_lossy(&buf).into_owned();
+        if let Some(w) = line.strip_prefix("WARNING:") {
+            let mut ws = warnings.lock().unwrap();
+            if ws.len() < WARNINGS_KEPT {
+                ws.push(w.trim().to_owned());
+            }
+        }
+        let mut t = tail.lock().unwrap();
+        if t.len() >= TAIL {
+            t.pop_front();
+        }
+        t.push_back(line);
+    }
 }
 
 /// Run `cmd` to the end within `timeout` and return its stdout (killed on timeout).
@@ -3119,5 +3140,17 @@ foreach ($d in $env:PATH.Split(';')) {
         let after_kill = size();
         std::thread::sleep(Duration::from_millis(1500));
         assert_eq!(size(), after_kill, "the child ended with the helper");
+    }
+
+    #[test]
+    fn non_utf8_stderr_does_not_drop_following_error_line() {
+        let raw = b"WARNING: bad bytes \xff\xfe here\r\nERROR: [youtube] real reason\n";
+        let tail = Mutex::new(VecDeque::new());
+        let warnings = Mutex::new(Vec::new());
+        read_stderr_lines(&raw[..], &tail, &warnings);
+        let t = tail.lock().unwrap();
+        assert_eq!(t.len(), 2);
+        assert_eq!(t[1], "ERROR: [youtube] real reason");
+        assert_eq!(warnings.lock().unwrap().len(), 1);
     }
 }

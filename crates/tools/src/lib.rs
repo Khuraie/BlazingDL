@@ -48,9 +48,8 @@ use sha2::{Digest, Sha256};
 
 /// yt-dlp's release signing key, from its repository (`public.key`).
 const YTDLP_KEY: &str = include_str!("../keys/yt-dlp.asc");
-/// Release signing key for self-update checksum verification.
-/// shortcut: still embeds upstream mdm-release.asc so OpenPGP fixture tests pass; replace with your own Ed25519 key before publishing signed BlazingDL releases.
-const BLAZINGDL_KEY: &str = include_str!("../keys/mdm-release.asc");
+/// BlazingDL's Ed25519 OpenPGP release signing key (fingerprint 817EF424B1FA29C87D4606478CD7FE6D490C0BB4).
+const BLAZINGDL_KEY: &str = include_str!("../keys/blazingdl-release.asc");
 /// Where releases come from: GitHub's API, else its pages (`github`, #1337).
 const RELEASES: &str = "https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest";
 /// yt-dlp's repository on GitHub.
@@ -605,14 +604,17 @@ mod tests {
     }
 
     #[test]
-    fn mdm_releases_are_checked_against_mdms_own_key() {
-        let sums = include_bytes!("../tests/fixtures/mdm-SHA256SUMS.txt");
-        let sig = include_bytes!("../tests/fixtures/mdm-SHA256SUMS.txt.sig");
+    fn blazingdl_releases_are_checked_against_blazingdls_own_key() {
+        let sums = include_bytes!("../tests/fixtures/blazingdl-SHA256SUMS.txt");
+        let sig = include_bytes!("../tests/fixtures/blazingdl-SHA256SUMS.txt.sig");
         assert!(signed_by_blazingdl(sums, sig));
         let mut forged = sums.to_vec();
         forged[0] = if forged[0] == b'0' { b'1' } else { b'0' };
         assert!(!signed_by_blazingdl(&forged, sig));
-        // Each key signs for itself only.
+        // Upstream MDM signatures and yt-dlp signatures are rejected by BlazingDL's key.
+        let mdm_sums = include_bytes!("../tests/fixtures/mdm-SHA256SUMS.txt");
+        let mdm_sig = include_bytes!("../tests/fixtures/mdm-SHA256SUMS.txt.sig");
+        assert!(!signed_by_blazingdl(mdm_sums, mdm_sig));
         assert!(!signed_by_ytdlp(sums, sig));
         assert!(!signed_by_blazingdl(SUMS, SIG));
     }

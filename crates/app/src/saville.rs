@@ -443,12 +443,14 @@ pub enum CommandBarEvent {
     ToggleStreamUnpack,
     ToggleMultiNic,
     ToggleFocus,
+    OpenUpdate,
 }
 
 /// Inline 36px Saville Command & Capture strip directly below the Pulse Header:
 /// - Left: Quick-Add bar for URL / magnet: / .acpkg / .meta4 / .nzb / URL+sha256 (`Ctrl+L`)
 /// - Middle: Live instant filter (`Ctrl+F`) with crisp `×` clear button
-/// - Right: Stream Unpack (1× disk), Multi-NIC Bond, and Game/Focus Auto-Throttle toggle pills
+/// - Right: Optional `UPDATE` pill (when a newer release is available), Stream Unpack (1× disk),
+///   Multi-NIC Bond, and Game/Focus Auto-Throttle toggle pills
 #[allow(clippy::too_many_arguments)]
 pub fn command_bar(
     ui: &mut Ui,
@@ -460,6 +462,7 @@ pub fn command_bar(
     nic_bonded: usize,
     focus_enabled: bool,
     focus_reason: Option<&crate::focusmode::ThrottleReason>,
+    update_version: Option<&str>,
     focus_add_req: bool,
     focus_filter_req: bool,
 ) -> Option<CommandBarEvent> {
@@ -693,8 +696,52 @@ pub fn command_bar(
         ev = Some(CommandBarEvent::ToggleStreamUnpack);
     }
 
+    // Optional UPDATE pill (shown whenever a newer BlazingDL release is available)
+    let pills_left = if let Some(ver) = update_version {
+        let upd_label = format!("UPDATE v{ver}");
+        let upd_w = (text_width_font(&p, pill_font.clone(), &upd_label).ceil() + 20.0).max(94.0);
+        let upd_x = unpack_x - gap - upd_w;
+        let upd_rect = winui::rect(Rect::from_min_size(pos2(upd_x, cy), vec2(upd_w, ctrl_h)));
+        let upd_resp = ui
+            .interact(
+                upd_rect,
+                egui::Id::unique("saville-update-pill"),
+                winui::pointer_only(),
+            )
+            .on_hover_text(format!(
+                "BlazingDL v{ver} is available — click to review release notes and update now"
+            ));
+        let upd_bg = if upd_resp.hovered() {
+            SIGNAL_EMBER_BRIGHT
+        } else {
+            SIGNAL_EMBER
+        };
+        p.rect_filled(upd_rect, 0.0, upd_bg);
+        p.rect_stroke(
+            upd_rect,
+            0.0,
+            Stroke::new(1.0, SIGNAL_EMBER_BRIGHT),
+            egui::StrokeKind::Inside,
+        );
+        let uw = text_width_font(&p, pill_font.clone(), &upd_label);
+        text_font(
+            &p,
+            pill_font.clone(),
+            upd_x + ((upd_w - uw) * 0.5).max(6.0),
+            cy + 16.0,
+            &upd_label,
+            Color32::WHITE,
+        );
+        if upd_resp.clicked() {
+            ev = Some(CommandBarEvent::OpenUpdate);
+        }
+        upd_x
+    } else {
+        unpack_x
+    };
+
     // ---- Left + Middle inputs fill remaining width cleanly ----
-    let avail = (unpack_x - gap - (o.x + pad)).max(120.0);
+    let avail = (pills_left - gap - (o.x + pad)).max(120.0);
     let filter_w = (avail * 0.28).clamp(140.0, 240.0);
     let add_total_w = (avail - filter_w - gap).max(160.0);
     let go_w = 42.0;

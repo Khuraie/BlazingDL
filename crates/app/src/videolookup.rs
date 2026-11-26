@@ -1513,8 +1513,10 @@ mod tests {
         );
         assert!(!notice.link.is_empty());
         assert!(
-            notice.url.starts_with("https://blazingdl.app/")
-                && notice.url.ends_with("/help/video.html#javascript-runtime"),
+            notice
+                .url
+                .starts_with("https://github.com/Khuraie/BlazingDL/blob/main/docs/")
+                && notice.url.ends_with("/docs/video.md#javascript-runtime"),
             "{}",
             notice.url
         );

@@ -444,15 +444,15 @@ jobs:
           $files = Get-ChildItem dist -File | Sort-Object Name
           $sums = $files | ForEach-Object { "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)" }
           Set-Content -Encoding ascii dist/SHA256SUMS.txt $sums
-          # Signed with BlazingDL's release key (fingerprint 5826D399249DE856EA087D802E293C28E8A69D74):
+          # Signed with BlazingDL's release key (fingerprint 817EF424B1FA29C87D4606478CD7FE6D490C0BB4):
           # BlazingDL updates itself only from a list it signed
-          # (crates/tools/src/update.rs; the public key is crates/tools/keys/mdm-release.asc).
+          # (crates/tools/src/update.rs; the public key is crates/tools/keys/blazingdl-release.asc).
           if ($env:BLAZINGDL_RELEASE_KEY) {
-            $key = Join-Path $env:RUNNER_TEMP "mdm-release.asc"
+            $key = Join-Path $env:RUNNER_TEMP "blazingdl-release.asc"
             Set-Content -Encoding ascii $key $env:BLAZINGDL_RELEASE_KEY
             gpg --batch --quiet --import $key
             Remove-Item $key
-            gpg --batch --yes --detach-sign --local-user 5826D399249DE856EA087D802E293C28E8A69D74 `
+            gpg --batch --yes --detach-sign --local-user 817EF424B1FA29C87D4606478CD7FE6D490C0BB4 `
               --output dist/SHA256SUMS.txt.sig dist/SHA256SUMS.txt
             if ($LASTEXITCODE) { throw "signing SHA256SUMS.txt failed" }
             gpg --batch --verify dist/SHA256SUMS.txt.sig dist/SHA256SUMS.txt
