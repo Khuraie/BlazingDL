@@ -20,7 +20,7 @@ Browser integration has two parts: a small helper program that the browser talks
 
 ### Firefox
 
-Firefox 140 or later is needed. Install the add-on from its page on addons.mozilla.org, [Mister Download Manager](https://addons.mozilla.org/firefox/addon/mister-download-manager/): click **Add to Firefox**. Firefox keeps it updated. Zen and LibreWolf install it from the same page. (MDM's **Add Mister Download Manager to your browser** window opens that page for you.)
+Firefox 140 or later is needed. Install the add-on from its page on addons.mozilla.org, [BlazingDL](https://addons.mozilla.org/firefox/addon/blazingdl/): click **Add to Firefox**. Firefox keeps it updated. Zen and LibreWolf install it from the same page. (BlazingDL's **Add BlazingDL to your browser** window opens that page for you.)
 
 For developers, Firefox can also load the add-on by hand: in `about:debugging`, **This Firefox → Load Temporary Add-on...**, choose `mdm-firefox.xpi`, which comes with MDM: in the `extension` folder where it is installed on Windows (as below), in `/usr/share/misterdownloadmanager` from the Linux packages. Firefox keeps that copy only until it restarts, and it doesn't update itself; its toolbar button's popup says so. The add-on from addons.mozilla.org is the one to use.
 

@@ -4,6 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/Khuraie/BlazingDL/releases"><img src="https://img.shields.io/github/v/release/Khuraie/BlazingDL?style=flat-square&amp;color=e04826&amp;label=release" alt="Release" /></a>
+  <a href="https://addons.mozilla.org/firefox/addon/blazingdl/"><img src="https://img.shields.io/badge/Firefox%20Add--on-live%20on%20AMO-ff7139?style=flat-square&amp;logo=firefoxbrowser&amp;logoColor=white" alt="Firefox Add-on" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0--or--later-ecebe7?style=flat-square" alt="GPL-3.0-or-later" /></a>
   <img src="https://img.shields.io/badge/rust-1.98%2B-090a0c?style=flat-square&amp;logo=rust&amp;logoColor=ecebe7" alt="Rust 1.98+" />
   <img src="https://img.shields.io/badge/platforms-Windows%20%C2%B7%20Linux%20%C2%B7%20macOS-111317?style=flat-square" alt="Platforms" />
@@ -148,7 +149,7 @@ Bond **Ethernet + Wi-Fi 6E + 5G USB tethering** simultaneously via `Route::Aggre
     </td>
     <td width="50%" valign="top">
       <h3>08 / BitTorrent, Video &amp; Saville Browser Capture</h3>
-      Full <code>librqbit</code> BitTorrent engine (magnets, DHT, uTP, selective files, blocklists), signature-verified <code>yt-dlp</code> / <code>gallery-dl</code> / <code>ffmpeg</code> helpers, Saville-styled cross-browser extension (floating video overlay + toolbar popup), CLI (<code>blazingdl-cli</code>), Remote Web UI (<code>blazingdl-remote</code>), and stdio <strong>MCP server</strong> (<code>blazingdl-mcp</code>).
+      Full <code>librqbit</code> BitTorrent engine (magnets, DHT, uTP, selective files, blocklists), signature-verified <code>yt-dlp</code> / <code>gallery-dl</code> / <code>ffmpeg</code> helpers, Saville-styled cross-browser extension (<a href="https://addons.mozilla.org/firefox/addon/blazingdl/">live on Firefox Add-ons</a>; floating video overlay + toolbar popup), CLI (<code>blazingdl-cli</code>), Remote Web UI (<code>blazingdl-remote</code>), and stdio <strong>MCP server</strong> (<code>blazingdl-mcp</code>).
     </td>
   </tr>
 </table>
@@ -275,7 +276,7 @@ Array indices `0..23` correspond to local hours (`null` = unlimited, integer = K
 BlazingDL is functional and test-verified across Windows, Linux, and macOS, with a few distribution/packaging items still in progress:
 
 - **Unsigned binaries (Windows & macOS):** Releases are not yet code-signed, so first launch may trigger a Windows SmartScreen or macOS Gatekeeper prompt. Verify downloads against the release `SHA256SUMS.txt`.
-- **Browser extension store approvals pending:** Firefox AMO signing and the Chrome Web Store listing are not live yet. Until approved, install Chromium via **Load unpacked** (`-extension-chromium.zip`) and Firefox via `about:debugging` (`blazingdl-firefox.xpi`, or permanently on Firefox Developer Edition / Nightly / LibreWolf).
+- **Chrome Web Store approval pending:** The [Firefox Add-on](https://addons.mozilla.org/firefox/addon/blazingdl/) is live and signed on Mozilla Add-ons (one-click install + auto-updates for Firefox, Zen, and LibreWolf). The Chrome Web Store listing is not live yet — until approved, install on Chromium browsers via **Load unpacked** (`-extension-chromium.zip`).
 - **In-app auto-updater signing key:** `Help → Check for updates` currently verifies signatures against the upstream release key (`crates/tools/keys/mdm-release.asc`) and will not auto-install BlazingDL releases until rotated to BlazingDL's own release key. Download updates directly from [GitHub Releases](https://github.com/Khuraie/BlazingDL/releases) in the meantime.
 - **1× Disk Stream Unpack format scope:** True 1× streaming applies to **`.zip` / ZIP64**, **`.tar` / `.tar.gz` / `.tar.xz` / `.tar.zst`**, and **`.acpkg` v1** on servers supporting HTTP `Range` (final disk usage equals the *uncompressed* size). Encrypted archives, non-`Range` servers, and `.rar` / `.7z` archives fall back cleanly to standard download + local extraction (via 7-Zip or HatchZip).
 - **Optional BoringSSL (`browser-connection`) on local builds:** Local builds with `--no-default-features` omit BoringSSL TLS browser-fingerprint impersonation (needed only for strict bot-gated/Cloudflare hosts); GitHub Actions release builds compile with default features enabled.

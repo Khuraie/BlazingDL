@@ -9,10 +9,11 @@ Current engineering status for **BlazingDL** (`v0.5.3`+). Released changes are t
 - **High-Throughput Transfer Engine:** Multi-NIC bandwidth aggregation (`Route::Aggregate`), adaptive stream concurrency (`AdaptiveScaler`), speed-limit-aware hedged tail racing (`Planner::preempt_slow_tail`), RFC 5854 Metalink multi-mirror racing, and native async NNTP/NNTPS + streaming yEnc Usenet (`.nzb`) downloads.
 - **Automation & Control:** Smart clipboard/sibling checksum auto-matching (off-UI-thread), post-download regex/category automation rules (move, shell command, Discord/ntfy/JSON webhooks), fullscreen Game/Focus auto-throttle with 24-hour bandwidth curve, CLI (`blazingdl-cli`), Remote Web UI (`blazingdl-remote`), and MCP stdio server (`blazingdl-mcp`).
 - **Multi-Platform Packaging & CI:** Automated GitHub Actions CI and Release workflows covering Windows (`x64`, `ARM64`, `x86`), Linux (`x86_64`, `ARM64`: AppImage, `.deb`, `.rpm`, `.tar.gz`), macOS (`arm64`, `x86_64` `.dmg` + Safari native extension relay), and Docker.
+- **Firefox Add-on on Mozilla Add-ons (AMO):** Signed and live at [addons.mozilla.org/firefox/addon/blazingdl](https://addons.mozilla.org/firefox/addon/blazingdl/) with one-click install and automatic updates across Firefox, Zen, and LibreWolf.
 
 ## In Progress
 
-- **Browser Extension Store Listings:** Complete Mozilla Add-ons (AMO) review/signing for `blazingdl-firefox.xpi` and publish the Chrome Web Store listing so one-click install & auto-updates work across Firefox and Chromium browsers (and re-enable Chromium store links in the extension dialog).
+- **Chrome Web Store Listing:** Publish the Chromium extension to the Chrome Web Store and re-enable Chromium store links in the in-app extension dialog (Firefox AMO is already live).
 - **BlazingDL Release Signing Key (Auto-Updater):** Rotate `crates/tools/keys/` from the inherited upstream OpenPGP key to BlazingDL's own Ed25519 release signing key and configure `BLAZINGDL_RELEASE_KEY` in GitHub Actions so in-app `Help → Check for updates` verifies and installs BlazingDL releases directly.
 - **OS Code Signing:** Obtain Windows Authenticode and macOS Developer ID signing/notarization certificates to remove first-run SmartScreen and Gatekeeper warnings.
 
