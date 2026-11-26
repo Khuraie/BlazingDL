@@ -5,6 +5,21 @@ Each release's notes on GitHub come from its section here (`## [X.Y.Z]`, see
 
 ## [Unreleased]
 
+## [0.5.4] - 2026-11-27
+
+### Added
+
+- **Persistent Saville `UPDATE` Pill:** when an automatic or manual update check finds a newer BlazingDL release, a clickable Signal-Ember `UPDATE vX.Y.Z` pill stays visible in the Saville Command Bar so you can open release notes and update at any time.
+- **One-Click Windows Setup Update Mode:** running `BlazingDL-*-setup.exe` when BlazingDL is already installed automatically detects the installed version, skips folder/task selection, and presents a direct **Update** button that upgrades in place while preserving downloads and settings.
+- **Verified In-App Auto-Updater Signing Key:** rotated `crates/tools/keys/blazingdl-release.asc` and GitHub Release signing (`SHA256SUMS.txt.sig`) to BlazingDL's own Ed25519 OpenPGP key, enabling signed one-click **Update now** from `v0.5.4` onward.
+- **Official Firefox Add-on Listing:** signed and live on Mozilla Add-ons ([addons.mozilla.org/firefox/addon/blazingdl](https://addons.mozilla.org/firefox/addon/blazingdl/)) with one-click install and automatic updates across Firefox, Zen, and LibreWolf.
+
+### Fixed
+
+- **Desktop & Extension Help / Download Links:** replaced dead `blazingdl.app` URLs across the desktop app (`Help → User Guide`, `Contributors`, YouTube JS-runtime notice) and browser extension (`Homepage`, `Help`, `How to fix it`, `Get BlazingDL`) with live GitHub pages and section anchors.
+- **Helper `stderr` Handling (`yt-dlp`):** switched helper stderr capture to UTF-8-lossy line reading so non-UTF-8 bytes in Windows/helper output no longer swallow the real `ERROR:` line into *"it stopped without saying why"*.
+- **Browser Extension Locales:** cleaned up remaining `MDM` brand strings in Amharic (`am`) and Korean (`ko`) extension translations.
+
 ## [0.5.3] - 2026-11-25
 
 ### Added

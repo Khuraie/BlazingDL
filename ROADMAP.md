@@ -1,8 +1,8 @@
 # BlazingDL Roadmap
 
-Current engineering status for **BlazingDL** (`v0.5.3`+). Released changes are tracked in [CHANGELOG.md](CHANGELOG.md). Bug reports and feature requests belong in [Issues](https://github.com/Khuraie/BlazingDL/issues).
+Current engineering status for **BlazingDL** (`v0.5.4`+). Released changes are tracked in [CHANGELOG.md](CHANGELOG.md). Bug reports and feature requests belong in [Issues](https://github.com/Khuraie/BlazingDL/issues).
 
-## Shipped (v0.5.3)
+## Shipped (v0.5.3 – v0.5.4)
 
 - **300+ GB 1× Disk Stream Unpack (`.zip`/ZIP64, `.tar.*`, `.acpkg` v1):** Pure-Rust HTTP Range streaming extraction (`<512 KiB`/worker RAM), parallel multi-connection ZIP `STORE` slicing, O(1) instant Pause → Resume, `crc32fast` verification, engine HTTP transport (Cookies/Auth/Proxy/PAC/DNS/Multi-NIC), and transparent fallback on non-Range or encrypted archives.
 - **Saville Catalog Pulse UI:** Matte-obsidian workstation shell (86px Pulse Header, 36px inline Command & Capture Strip, Catalog Index Rail, Telemetry Footer), redesigned Saville Download Progress Window (live throughput sparkline, 2×4 telemetry matrix, server Geo/RTT, per-worker speeds, `Log` tab), and matching Saville browser extension (floating video overlay + toolbar popup).

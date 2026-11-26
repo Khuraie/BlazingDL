@@ -854,7 +854,7 @@ dependencies = [
 
 [[package]]
 name = "blazingdl-app"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "arboard",
  "base64 0.23.1",
@@ -922,7 +922,7 @@ dependencies = [
 
 [[package]]
 name = "blazingdl-cli"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "anyhow",
  "blazingdl-engine",
@@ -941,7 +941,7 @@ dependencies = [
 
 [[package]]
 name = "blazingdl-cnl"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "aes",
  "axum",
@@ -954,7 +954,7 @@ dependencies = [
 
 [[package]]
 name = "blazingdl-crash"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "async-trait",
  "blazingdl-engine",
@@ -980,7 +980,7 @@ dependencies = [
 
 [[package]]
 name = "blazingdl-debrid"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "blazingdl-engine",
  "blazingdl-labserver",
@@ -1000,7 +1000,7 @@ dependencies = [
 
 [[package]]
 name = "blazingdl-engine"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "base64 0.23.1",
  "blazingdl-labserver",
@@ -1053,7 +1053,7 @@ dependencies = [
 
 [[package]]
 name = "blazingdl-extract"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "blazingdl-engine",
  "bytes",
@@ -1077,7 +1077,7 @@ dependencies = [
 
 [[package]]
 name = "blazingdl-geo"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "lzma-rust2",
  "png 0.18.1",
@@ -1086,7 +1086,7 @@ dependencies = [
 
 [[package]]
 name = "blazingdl-ipc"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "craft-atomic",
  "dirs 7.0.0",
@@ -1098,7 +1098,7 @@ dependencies = [
 
 [[package]]
 name = "blazingdl-labserver"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "anyhow",
  "aws-lc-rs",
@@ -1127,7 +1127,7 @@ dependencies = [
 
 [[package]]
 name = "blazingdl-mcp"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "blazingdl-ipc",
  "rmcp",
@@ -1141,7 +1141,7 @@ dependencies = [
 
 [[package]]
 name = "blazingdl-nmhost"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "blazingdl-ipc",
  "chrono",
@@ -1152,7 +1152,7 @@ dependencies = [
 
 [[package]]
 name = "blazingdl-remote"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "aws-lc-rs",
  "axum",
@@ -1173,7 +1173,7 @@ dependencies = [
 
 [[package]]
 name = "blazingdl-tools"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "aws-lc-rs",
  "base64 0.23.1",
@@ -1205,7 +1205,7 @@ dependencies = [
 
 [[package]]
 name = "blazingdl-torrent"
-version = "0.5.3"
+version = "0.5.4"
 dependencies = [
  "anyhow",
  "blazingdl-engine",

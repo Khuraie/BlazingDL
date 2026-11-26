@@ -188,11 +188,68 @@ Type: files; Name: "{app}\com.blazingdl.host*.json"
 [Code]
 const
   RunningMutex = 'BlazingDL.Running';
+  UninstallKey = 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{AA704357-1CA3-4870-805C-B9DDEB756A06}}_is1';
 
 { /relaunch=1 on the command line (BlazingDL's Update now): start BlazingDL again after installing. }
 function Relaunch: Boolean;
 begin
   Result := ExpandConstant('{param:relaunch|0}') = '1';
+end;
+
+{ Return the currently installed BlazingDL version if already installed, else ''. }
+function InstalledVersion: String;
+begin
+  Result := '';
+  if not RegQueryStringValue(HKA, UninstallKey, 'DisplayVersion', Result) then
+    if not RegQueryStringValue(HKCU, UninstallKey, 'DisplayVersion', Result) then
+      RegQueryStringValue(HKLM, UninstallKey, 'DisplayVersion', Result);
+end;
+
+{ True when Setup is upgrading an existing BlazingDL installation in place. }
+function IsUpdating: Boolean;
+begin
+  Result := (InstalledVersion <> '') or FileExists(ExpandConstant('{app}\{#AppExe}'));
+end;
+
+{ When updating an existing install, skip folder and task selection and jump straight to Update. }
+function ShouldSkipPage(PageID: Integer): Boolean;
+begin
+  Result := IsUpdating and ((PageID = wpSelectDir) or (PageID = wpSelectTasks));
+end;
+
+{ Show Update wording and an "&Update" button instead of "&Install" when upgrading in place. }
+procedure CurPageChanged(CurPageID: Integer);
+var
+  PrevVer: String;
+begin
+  if not IsUpdating then
+    Exit;
+  PrevVer := InstalledVersion;
+  if CurPageID = wpReady then
+  begin
+    WizardForm.PageNameLabel.Caption := 'Ready to Update';
+    if PrevVer <> '' then
+      WizardForm.PageDescriptionLabel.Caption :=
+        'BlazingDL ' + PrevVer + ' is already installed. Setup is ready to update it to {#AppVersion}.'
+    else
+      WizardForm.PageDescriptionLabel.Caption :=
+        'Setup is now ready to update {#AppName} to {#AppVersion} on your computer.';
+    WizardForm.ReadyLabel.Caption :=
+      'Click Update to upgrade {#AppName} in place. Your downloads and settings will be kept.';
+    WizardForm.NextButton.Caption := '&Update';
+  end
+  else if CurPageID = wpInstalling then
+  begin
+    WizardForm.PageNameLabel.Caption := 'Updating';
+    WizardForm.PageDescriptionLabel.Caption :=
+      'Please wait while Setup updates {#AppName} on your computer.';
+  end
+  else if CurPageID = wpFinished then
+  begin
+    WizardForm.FinishedHeadingLabel.Caption := 'Updated {#AppName} to {#AppVersion}';
+    WizardForm.FinishedLabel.Caption :=
+      '{#AppName} has been updated to {#AppVersion}. Your downloads and settings were preserved.';
+  end;
 end;
 
 { Ask a running BlazingDL to save and quit, and wait up to 15 s for it. }
