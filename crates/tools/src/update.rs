@@ -425,11 +425,11 @@ Connection: close
                 .collect()
         };
         let base = serve(vec![
-            ("SHA256SUMS.txt", "mdm-SHA256SUMS.txt"),
-            ("SHA256SUMS.txt.sig", "mdm-SHA256SUMS.txt.sig"),
+            ("SHA256SUMS.txt", "blazingdl-SHA256SUMS.txt"),
+            ("SHA256SUMS.txt.sig", "blazingdl-SHA256SUMS.txt.sig"),
             (zip, zip),
             // Not what the signed list says it is.
-            (setup, "mdm-SHA256SUMS.txt"),
+            (setup, "blazingdl-SHA256SUMS.txt"),
         ]);
         let dir = tempfile::tempdir().unwrap();
         // Through BlazingDL's own engine, as the app fetches it.

@@ -208,7 +208,8 @@ end;
 { True when Setup is upgrading an existing BlazingDL installation in place. }
 function IsUpdating: Boolean;
 begin
-  Result := (InstalledVersion <> '') or FileExists(ExpandConstant('{app}\{#AppExe}'));
+  Result := (InstalledVersion <> '') or
+    ((WizardDirValue <> '') and FileExists(AddBackslash(WizardDirValue) + '{#AppExe}'));
 end;
 
 { When updating an existing install, skip folder and task selection and jump straight to Update. }

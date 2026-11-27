@@ -406,11 +406,11 @@ mod tests {
     #[tokio::test]
     async fn a_rate_limited_api_gives_way_to_the_release_pages() {
         let mdm_files: &[(&str, &str)] = &[
-            ("SHA256SUMS.txt", "mdm-SHA256SUMS.txt"),
-            ("SHA256SUMS.txt.sig", "mdm-SHA256SUMS.txt.sig"),
+            ("SHA256SUMS.txt", "blazingdl-SHA256SUMS.txt"),
+            ("SHA256SUMS.txt.sig", "blazingdl-SHA256SUMS.txt.sig"),
             (ZIP, ZIP),
             // Not what the signed list says it is.
-            (SETUP, "mdm-SHA256SUMS.txt"),
+            (SETUP, "blazingdl-SHA256SUMS.txt"),
         ];
         let ytdlp_files: &[(&str, &str)] = &[
             ("SHA2-256SUMS", "SHA2-256SUMS"),
